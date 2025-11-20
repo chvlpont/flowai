@@ -41,3 +41,13 @@ export interface Cursor {
   cursor_y: number;
   color: string;
 }
+
+export interface Stroke {
+  id: string;
+  board_id: string;
+  created_by: string;
+  color: string;
+  stroke_width: number;
+  points: { x: number; y: number }[];
+  created_at: string;
+}

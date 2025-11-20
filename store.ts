@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Note, Connection, Cursor } from "@/types";
+import { Note, Connection, Cursor, Stroke } from "@/types";
 
 interface Store {
   // Notes
@@ -14,6 +14,12 @@ interface Store {
   setConnections: (connections: Connection[]) => void;
   addConnection: (connection: Connection) => void;
   deleteConnection: (id: string) => void;
+
+  // Strokes
+  strokes: Stroke[];
+  setStrokes: (strokes: Stroke[]) => void;
+  addStroke: (stroke: Stroke) => void;
+  deleteStroke: (id: string) => void;
 
   // Selection (for creating connections and general selection)
   selectedNoteId: string | null;
@@ -58,6 +64,13 @@ export const useStore = create<Store>((set) => ({
     set((s) => ({ connections: [...s.connections, connection] })),
   deleteConnection: (id) =>
     set((s) => ({ connections: s.connections.filter((c) => c.id !== id) })),
+
+  strokes: [],
+  setStrokes: (strokes) => set({ strokes }),
+  addStroke: (stroke) =>
+    set((s) => ({ strokes: [...s.strokes, stroke] })),
+  deleteStroke: (id) =>
+    set((s) => ({ strokes: s.strokes.filter((stroke) => stroke.id !== id) })),
 
   selectedNoteId: null,
   setSelectedNoteId: (id) => set({ selectedNoteId: id }),

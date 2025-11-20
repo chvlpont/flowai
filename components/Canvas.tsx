@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useStore } from "@/store";
 import { supabase } from "@/lib/supabase";
 import { Note } from "./Note";
@@ -8,13 +8,23 @@ import { ConnectionLine } from "./Connection";
 import { Toolbar } from "./Toolbar";
 import { ThemeToggle } from "./ThemeToggle";
 import { ContextMenu } from "./ContextMenu";
-import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 
 export function Canvas({ boardId }: { boardId: string }) {
   const { notes, setNotes, addNote, updateNote, deleteNote } = useStore();
   const { connections, setConnections, addConnection, deleteConnection } =
     useStore();
+  const { strokes, setStrokes, addStroke } = useStore();
+  const deleteStroke = useStore((s) => s.deleteStroke);
   const selectedNoteId = useStore((s) => s.selectedNoteId);
+  const selectedItemId = useStore((s) => s.selectedItemId);
+  const setSelectedItemId = useStore((s) => s.setSelectedItemId);
   const selectedTool = useStore((s) => s.selectedTool);
   const setSelectedTool = useStore((s) => s.setSelectedTool);
   const viewport = useStore((s) => s.viewport);
@@ -24,13 +34,23 @@ export function Canvas({ boardId }: { boardId: string }) {
   const [isPanning, setIsPanning] = useState(false);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [isDraggingText, setIsDraggingText] = useState(false);
-  const [textDragStart, setTextDragStart] = useState<{ x: number; y: number } | null>(null);
-  const [textDragEnd, setTextDragEnd] = useState<{ x: number; y: number } | null>(null);
+  const [textDragStart, setTextDragStart] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [textDragEnd, setTextDragEnd] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     itemId: string;
   } | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentStroke, setCurrentStroke] = useState<
+    { x: number; y: number }[]
+  >([]);
 
   // @dnd-kit sensors
   const sensors = useSensors(
@@ -73,6 +93,11 @@ export function Canvas({ boardId }: { boardId: string }) {
     (conn, index, self) => index === self.findIndex((c) => c.id === conn.id)
   );
 
+  // Filter unique strokes
+  const uniqueStrokes = strokes.filter(
+    (stroke, index, self) => index === self.findIndex((s) => s.id === stroke.id)
+  );
+
   useEffect(() => {
     // Load notes
     supabase
@@ -87,6 +112,13 @@ export function Canvas({ boardId }: { boardId: string }) {
       .select("*")
       .eq("board_id", boardId)
       .then(({ data }) => setConnections(data || []));
+
+    // Load strokes
+    supabase
+      .from("board_strokes")
+      .select("*")
+      .eq("board_id", boardId)
+      .then(({ data }) => setStrokes(data || []));
 
     // Subscribe to real-time changes
     const channel = supabase
@@ -118,6 +150,17 @@ export function Canvas({ boardId }: { boardId: string }) {
         { event: "DELETE", schema: "public", table: "board_connections" },
         (payload) => deleteConnection(payload.old.id)
       )
+      // Strokes
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "board_strokes" },
+        (payload) => addStroke(payload.new as any)
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "board_strokes" },
+        (payload) => deleteStroke(payload.old.id)
+      )
       .subscribe();
 
     return () => {
@@ -125,10 +168,30 @@ export function Canvas({ boardId }: { boardId: string }) {
     };
   }, [boardId]);
 
+  // Delete item function
+  const deleteItem = useCallback(
+    async (id: string) => {
+      // Check if it's a stroke first
+      const stroke = strokes.find((s) => s.id === id);
+      if (stroke) {
+        await supabase.from("board_strokes").delete().eq("id", id);
+        deleteStroke(id);
+        useStore.getState().setSelectedItemId(null);
+        return;
+      }
+
+      // Otherwise it's a note/object
+      await supabase.from("board_objects").delete().eq("id", id);
+      deleteNote(id);
+      useStore.getState().setSelectedItemId(null);
+    },
+    [strokes, deleteStroke, deleteNote]
+  );
+
   // Delete key handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Delete" || e.key === "Backspace") {
+      if (e.key === "Delete") {
         const selectedItemId = useStore.getState().selectedItemId;
         if (selectedItemId) {
           e.preventDefault();
@@ -139,14 +202,7 @@ export function Canvas({ boardId }: { boardId: string }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  // Delete item function
-  const deleteItem = async (id: string) => {
-    await supabase.from("board_objects").delete().eq("id", id);
-    deleteNote(id);
-    useStore.getState().setSelectedItemId(null);
-  };
+  }, [deleteItem]);
 
   const createObject = async (x: number, y: number, type: string) => {
     let objectData: any = {
@@ -298,6 +354,62 @@ export function Canvas({ boardId }: { boardId: string }) {
     setTextDragEnd(null);
   };
 
+  // Handle pen drawing start
+  const handlePenDrawStart = (e: React.MouseEvent) => {
+    if (selectedTool !== "pen") return;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+    const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+    setIsDrawing(true);
+    setCurrentStroke([{ x, y }]);
+  };
+
+  // Handle pen drawing move
+  const handlePenDrawMove = (e: React.MouseEvent) => {
+    if (!isDrawing || selectedTool !== "pen") return;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+    const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+    setCurrentStroke((prev) => [...prev, { x, y }]);
+  };
+
+  // Handle pen drawing end
+  const handlePenDrawEnd = async () => {
+    if (!isDrawing || currentStroke.length < 2) {
+      setIsDrawing(false);
+      setCurrentStroke([]);
+      return;
+    }
+
+    // Save stroke to database
+    const { data } = await supabase
+      .from("board_strokes")
+      .insert({
+        board_id: boardId,
+        created_by: "user", // TODO: Replace with actual user ID
+        color: "#3b82f6",
+        stroke_width: 2,
+        points: currentStroke,
+      })
+      .select()
+      .single();
+
+    if (data) {
+      addStroke(data);
+    }
+
+    setIsDrawing(false);
+    setCurrentStroke([]);
+  };
+
   // Pan with mouse drag on background
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -333,17 +445,22 @@ export function Canvas({ boardId }: { boardId: string }) {
   };
 
   // Zoom on wheel
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const centerX = e.clientX - rect.left;
-    const centerY = e.clientY - rect.top;
-    const delta = -e.deltaY * 0.001;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const centerX = e.clientX - rect.left;
+      const centerY = e.clientY - rect.top;
+      const delta = -e.deltaY * 0.001;
+      zoomViewport(delta, centerX, centerY);
+    };
 
-    zoomViewport(delta, centerX, centerY);
-  };
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", handleWheel);
+  }, [zoomViewport]);
 
   // Mouse handlers for cursor feedback and text dragging
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -353,14 +470,20 @@ export function Canvas({ boardId }: { boardId: string }) {
       return;
     }
 
+    // Handle pen tool drawing start
+    if (selectedTool === "pen") {
+      handlePenDrawStart(e);
+      return;
+    }
+
     // Only show grab cursor in select mode
     if (selectedTool !== "select") return;
 
     const target = e.target as HTMLElement;
     const isCanvasBackground =
       target === canvasRef.current ||
-      target.classList.contains('canvas-content') ||
-      target.tagName === 'svg';
+      target.classList.contains("canvas-content") ||
+      target.tagName === "svg";
 
     if (isCanvasBackground) {
       setIsMouseDown(true);
@@ -369,16 +492,19 @@ export function Canvas({ boardId }: { boardId: string }) {
 
   const handleMouseMove = (e: React.MouseEvent) => {
     handleTextDragMove(e);
+    handlePenDrawMove(e);
   };
 
   const handleMouseUp = () => {
     handleTextDragEnd();
+    handlePenDrawEnd();
     setIsMouseDown(false);
     setIsPanning(false);
   };
 
   const handleMouseLeave = () => {
     handleTextDragEnd();
+    handlePenDrawEnd();
     setIsMouseDown(false);
     setIsPanning(false);
   };
@@ -390,15 +516,24 @@ export function Canvas({ boardId }: { boardId: string }) {
       if (isMouseDown) return "grab";
       return "default";
     }
+    if (selectedTool === "pen") return "crosshair";
     // Default cursor for creation tools (hand will show on hover)
     return "default";
+  };
+
+  // Convert stroke points to SVG path
+  const pointsToPath = (points: { x: number; y: number }[]) => {
+    if (points.length === 0) return "";
+    const [first, ...rest] = points;
+    return `M ${first.x} ${first.y} ${rest
+      .map((p) => `L ${p.x} ${p.y}`)
+      .join(" ")}`;
   };
 
   return (
     <div
       ref={canvasRef}
       className="relative w-full h-screen overflow-hidden"
-      onWheel={handleWheel}
       onClick={handleCanvasClick}
       onMouseDown={(e) => {
         handleMouseDown(e);
@@ -498,7 +633,9 @@ export function Canvas({ boardId }: { boardId: string }) {
           −
         </button>
         <button
-          onClick={() => useStore.setState({ viewport: { x: 0, y: 0, zoom: 1 } })}
+          onClick={() =>
+            useStore.setState({ viewport: { x: 0, y: 0, zoom: 1 } })
+          }
           className="w-10 h-10 rounded shadow flex items-center justify-center text-xs transition-colors"
           style={{
             background: "var(--bg-surface)",
@@ -554,6 +691,84 @@ export function Canvas({ boardId }: { boardId: string }) {
               }}
             />
           )}
+
+          {/* Render pen strokes */}
+          <svg
+            className="absolute inset-0"
+            style={{
+              width: "100%",
+              height: "100%",
+              overflow: "visible",
+              pointerEvents: selectedTool === "select" ? "auto" : "none",
+            }}
+          >
+            {/* Render saved strokes */}
+            {uniqueStrokes.map((stroke) => {
+              const isSelected = selectedItemId === stroke.id;
+              return (
+                <g key={stroke.id}>
+                  {/* Invisible wider path for easier clicking */}
+                  <path
+                    d={pointsToPath(stroke.points)}
+                    stroke="transparent"
+                    strokeWidth={stroke.stroke_width + 10}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ cursor: "pointer" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedItemId(stroke.id);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContextMenu({
+                        x: e.clientX,
+                        y: e.clientY,
+                        itemId: stroke.id,
+                      });
+                    }}
+                  />
+                  {/* Selection highlight */}
+                  {isSelected && (
+                    <path
+                      d={pointsToPath(stroke.points)}
+                      stroke="var(--accent-primary)"
+                      strokeWidth={stroke.stroke_width + 4}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ pointerEvents: "none", opacity: 0.5 }}
+                    />
+                  )}
+                  {/* Actual stroke */}
+                  <path
+                    d={pointsToPath(stroke.points)}
+                    stroke={stroke.color}
+                    strokeWidth={stroke.stroke_width}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ pointerEvents: "none" }}
+                  />
+                </g>
+              );
+            })}
+
+            {/* Render current stroke being drawn */}
+            {isDrawing && currentStroke.length > 0 && (
+              <path
+                d={pointsToPath(currentStroke)}
+                stroke="#3b82f6"
+                strokeWidth={2}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ pointerEvents: "none" }}
+              />
+            )}
+          </svg>
         </div>
       </DndContext>
 

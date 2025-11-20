@@ -26,10 +26,11 @@ export function Note({ note, onContextMenu }: NoteProps) {
   const resizeStartSize = useRef({ width: 0, height: 0 });
 
   // @dnd-kit draggable
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: note.id,
-    disabled: isResizing, // Don't drag while resizing
-  });
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: note.id,
+      disabled: isResizing, // Don't drag while resizing
+    });
 
   // Resize handlers using mouse events
   const handleResizeStart = (e: React.MouseEvent) => {
@@ -134,7 +135,10 @@ export function Note({ note, onContextMenu }: NoteProps) {
       ? "var(--hover-shadow)"
       : "var(--shadow)",
     transform: CSS.Transform.toString(transform),
-    transition: isDragging || isResizing ? "none" : "box-shadow 0.2s, outline 0.2s, width 0.1s, height 0.1s",
+    transition:
+      isDragging || isResizing
+        ? "none"
+        : "box-shadow 0.2s, outline 0.2s, width 0.1s, height 0.1s",
   };
 
   return (
