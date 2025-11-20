@@ -9,9 +9,10 @@ import { supabase } from "@/lib/supabase";
 interface NoteProps {
   note: any;
   onContextMenu: (e: React.MouseEvent, id: string) => void;
+  onClick?: () => void;
 }
 
-export function Note({ note, onContextMenu }: NoteProps) {
+export function Note({ note, onContextMenu, onClick }: NoteProps) {
   const updateNote = useStore((s) => s.updateNote);
   const selectedNoteId = useStore((s) => s.selectedNoteId);
   const setSelectedNoteId = useStore((s) => s.setSelectedNoteId);
@@ -146,7 +147,10 @@ export function Note({ note, onContextMenu }: NoteProps) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      onClick={handleClick}
+      onClick={(e) => {
+        handleClick(e);
+        if (onClick) onClick();
+      }}
       onDoubleClick={handleDoubleClick}
       onContextMenu={(e) => onContextMenu(e, note.id)}
       className="absolute p-4 rounded shadow-lg"

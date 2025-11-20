@@ -250,6 +250,7 @@ export function Canvas({ boardId }: { boardId: string }) {
 
   // Handle canvas click for creating objects and deselection
   const handleCanvasClick = (e: React.MouseEvent) => {
+    setContextMenu(null);
     const target = e.target as HTMLElement;
     const isCanvasBackground =
       target === canvasRef.current ||
@@ -669,6 +670,10 @@ export function Canvas({ boardId }: { boardId: string }) {
             <Note
               key={note.id}
               note={note}
+              onClick={() => {
+                setSelectedItemId(note.id);
+                setContextMenu(null);
+              }}
               onContextMenu={(e, id) => {
                 e.preventDefault();
                 setContextMenu({ x: e.clientX, y: e.clientY, itemId: id });
@@ -719,6 +724,7 @@ export function Canvas({ boardId }: { boardId: string }) {
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedItemId(stroke.id);
+                      setContextMenu(null);
                     }}
                     onContextMenu={(e) => {
                       e.preventDefault();
