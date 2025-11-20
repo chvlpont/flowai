@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useDrag } from "@use-gesture/react";
+import { useState, useRef } from "react";
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { useStore } from "@/store";
 import { supabase } from "@/lib/supabase";
 
@@ -19,82 +20,60 @@ export function Note({ note, onContextMenu }: NoteProps) {
   const addConnection = useStore((s) => s.addConnection);
   const viewport = useStore((s) => s.viewport);
 
-  // Local state for smooth dragging
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-
   // Local state for smooth resizing
   const [resizeOffset, setResizeOffset] = useState({ width: 0, height: 0 });
   const [isResizing, setIsResizing] = useState(false);
+  const resizeStartSize = useRef({ width: 0, height: 0 });
 
-  const bind = useDrag(
-    ({ offset: [x, y], last, active, event }) => {
-      // Don't drag if clicking on resize handle
-      const target = event?.target as HTMLElement;
-      if (target?.classList.contains('resize-handle')) {
-        return;
-      }
+  // @dnd-kit draggable
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: note.id,
+    disabled: isResizing, // Don't drag while resizing
+  });
 
-      if (active && !isResizing) {
-        // During drag: only update local transform (fast!)
-        setIsDragging(true);
-        setDragOffset({ x: x - note.x, y: y - note.y });
-      }
+  // Resize handlers using mouse events
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsResizing(true);
+    resizeStartSize.current = { width: note.width, height: note.height };
 
-      if (last) {
-        // On drag end: update store and database
-        setIsDragging(false);
-        setDragOffset({ x: 0, y: 0 });
-        updateNote(note.id, { x, y });
+    const startX = e.clientX;
+    const startY = e.clientY;
 
-        supabase
-          .from("board_objects")
-          .update({ x, y })
-          .eq("id", note.id)
-          .then();
-      }
-    },
-    {
-      from: () => [note.x, note.y],
-      filterTaps: true,
-    }
-  );
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = (moveEvent.clientX - startX) / viewport.zoom;
+      const dy = (moveEvent.clientY - startY) / viewport.zoom;
 
-  // Resize handler
-  const bindResize = useDrag(
-    ({ offset: [x, y], last, active }) => {
-      if (active) {
-        // During resize: only update local size (fast!)
-        setIsResizing(true);
-        const newWidth = Math.max(100, note.width + x);
-        const newHeight = Math.max(50, note.height + y);
-        setResizeOffset({
-          width: newWidth - note.width,
-          height: newHeight - note.height,
-        });
-      }
+      const newWidth = Math.max(100, resizeStartSize.current.width + dx);
+      const newHeight = Math.max(50, resizeStartSize.current.height + dy);
 
-      if (last) {
-        // On resize end: update store and database
-        setIsResizing(false);
-        const newWidth = Math.max(100, note.width + resizeOffset.width);
-        const newHeight = Math.max(50, note.height + resizeOffset.height);
-        setResizeOffset({ width: 0, height: 0 });
+      setResizeOffset({
+        width: newWidth - note.width,
+        height: newHeight - note.height,
+      });
+    };
 
-        updateNote(note.id, { width: newWidth, height: newHeight });
+    const handleMouseUp = async () => {
+      const newWidth = Math.max(100, note.width + resizeOffset.width);
+      const newHeight = Math.max(50, note.height + resizeOffset.height);
 
-        supabase
-          .from("board_objects")
-          .update({ width: newWidth, height: newHeight })
-          .eq("id", note.id)
-          .then();
-      }
-    },
-    {
-      from: () => [0, 0],
-      filterTaps: true,
-    }
-  );
+      // Update store and database
+      updateNote(note.id, { width: newWidth, height: newHeight });
+      await supabase
+        .from("board_objects")
+        .update({ width: newWidth, height: newHeight })
+        .eq("id", note.id);
+
+      setResizeOffset({ width: 0, height: 0 });
+      setIsResizing(false);
+
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
 
   const handleClick = async (e: React.MouseEvent) => {
     // Always select the item when clicked
@@ -137,38 +116,37 @@ export function Note({ note, onContextMenu }: NoteProps) {
   const isConnectionMode = selectedNoteId === note.id;
   const isSelected = selectedItemId === note.id;
 
+  // Calculate transform style
+  const style = {
+    left: note.x,
+    top: note.y,
+    width: isResizing ? note.width + resizeOffset.width : note.width,
+    height: isResizing ? note.height + resizeOffset.height : note.height,
+    backgroundColor: note.color,
+    touchAction: "none" as const,
+    cursor: isDragging ? "grabbing" : "grab",
+    zIndex: isDragging || isResizing ? 30 : isSelected ? 20 : 10,
+    outline: isSelected ? "3px solid var(--accent-primary)" : "none",
+    outlineOffset: "2px",
+    boxShadow: isConnectionMode
+      ? "0 0 0 4px var(--accent-yellow)"
+      : isSelected
+      ? "var(--hover-shadow)"
+      : "var(--shadow)",
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging || isResizing ? "none" : "box-shadow 0.2s, outline 0.2s, width 0.1s, height 0.1s",
+  };
+
   return (
     <div
-      {...bind()}
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={(e) => onContextMenu(e, note.id)}
       className="absolute p-4 rounded shadow-lg"
-      style={{
-        left: note.x,
-        top: note.y,
-        width: isResizing
-          ? note.width + resizeOffset.width
-          : note.width,
-        height: isResizing
-          ? note.height + resizeOffset.height
-          : note.height,
-        backgroundColor: note.color,
-        touchAction: "none",
-        cursor: isDragging ? "grabbing" : "grab",
-        zIndex: isDragging || isResizing ? 30 : isSelected ? 20 : 10,
-        outline: isSelected ? "3px solid var(--accent-primary)" : "none",
-        outlineOffset: "2px",
-        boxShadow: isConnectionMode
-          ? "0 0 0 4px var(--accent-yellow)"
-          : isSelected
-          ? "var(--hover-shadow)"
-          : "var(--shadow)",
-        transform: isDragging
-          ? `translate(${dragOffset.x}px, ${dragOffset.y}px)`
-          : "none",
-        transition: isDragging || isResizing ? "none" : "box-shadow 0.2s, outline 0.2s, width 0.1s, height 0.1s",
-      }}
+      style={style}
     >
       <textarea
         className="w-full h-full bg-transparent border-none outline-none resize-none"
@@ -196,7 +174,7 @@ export function Note({ note, onContextMenu }: NoteProps) {
       {/* Resize Handle - Only show when selected */}
       {isSelected && (
         <div
-          {...bindResize()}
+          onMouseDown={handleResizeStart}
           className="absolute resize-handle"
           style={{
             right: -4,

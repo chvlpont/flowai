@@ -8,7 +8,7 @@ import { ConnectionLine } from "./Connection";
 import { Toolbar } from "./Toolbar";
 import { ThemeToggle } from "./ThemeToggle";
 import { ContextMenu } from "./ContextMenu";
-import { useDrag } from "@use-gesture/react";
+import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 
 export function Canvas({ boardId }: { boardId: string }) {
   const { notes, setNotes, addNote, updateNote, deleteNote } = useStore();
@@ -31,6 +31,37 @@ export function Canvas({ boardId }: { boardId: string }) {
     y: number;
     itemId: string;
   } | null>(null);
+
+  // @dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement required to start drag (prevents accidental drags)
+      },
+    })
+  );
+
+  // Handle drag end
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, delta } = event;
+    const noteId = active.id as string;
+    const note = notes.find((n) => n.id === noteId);
+
+    if (!note) return;
+
+    // Calculate new position accounting for zoom
+    const newX = note.x + delta.x / viewport.zoom;
+    const newY = note.y + delta.y / viewport.zoom;
+
+    // Update store
+    updateNote(noteId, { x: newX, y: newY });
+
+    // Update database
+    await supabase
+      .from("board_objects")
+      .update({ x: newX, y: newY })
+      .eq("id", noteId);
+  };
 
   // Filter unique notes to avoid duplicate keys
   const uniqueNotes = notes.filter(
@@ -267,33 +298,39 @@ export function Canvas({ boardId }: { boardId: string }) {
     setTextDragEnd(null);
   };
 
-  // Pan gesture - only in select mode
-  const bind = useDrag(
-    ({ delta: [dx, dy], event, active, target }) => {
-      // Only allow panning in select mode or with middle mouse
-      if (selectedTool !== "select" && (event as PointerEvent).button !== 1) {
-        return;
-      }
+  // Pan with mouse drag on background
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const isCanvasBackground =
+      target === canvasRef.current ||
+      target.classList.contains("canvas-content") ||
+      target.tagName === "svg";
 
-      const e = event as PointerEvent;
-      const targetElement = target as HTMLElement;
+    if (!isCanvasBackground || selectedTool !== "select") return;
 
-      // Only pan if clicking on canvas background (not on notes or buttons)
-      const isCanvasBackground =
-        targetElement === canvasRef.current ||
-        targetElement.classList.contains('canvas-content') ||
-        targetElement.tagName === 'svg';
+    setIsPanning(true);
+    let lastX = e.clientX;
+    let lastY = e.clientY;
 
-      // Pan with left mouse on background (in select mode), or middle mouse button anywhere
-      if (e.button === 1 || (e.buttons === 1 && isCanvasBackground)) {
-        setIsPanning(active);
-        panViewport(dx / viewport.zoom, dy / viewport.zoom);
-      }
-    },
-    {
-      pointer: { buttons: [1, 2, 4] }, // Allow all mouse buttons
-    }
-  );
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - lastX;
+      const dy = moveEvent.clientY - lastY;
+      panViewport(dx, dy);
+
+      // Update last position for next frame
+      lastX = moveEvent.clientX;
+      lastY = moveEvent.clientY;
+    };
+
+    const handleMouseUp = () => {
+      setIsPanning(false);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
 
   // Zoom on wheel
   const handleWheel = (e: React.WheelEvent) => {
@@ -363,11 +400,13 @@ export function Canvas({ boardId }: { boardId: string }) {
       className="relative w-full h-screen overflow-hidden"
       onWheel={handleWheel}
       onClick={handleCanvasClick}
-      onMouseDown={handleMouseDown}
+      onMouseDown={(e) => {
+        handleMouseDown(e);
+        handleCanvasMouseDown(e);
+      }}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
-      {...bind()}
       style={{
         touchAction: "none",
         cursor: getCursor(),
@@ -473,48 +512,50 @@ export function Canvas({ boardId }: { boardId: string }) {
       </div>
 
       {/* Canvas content with viewport transform */}
-      <div
-        className="canvas-content"
-        style={{
-          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-          transformOrigin: "0 0",
-          width: "100%",
-          height: "100%",
-        }}
-      >
-        {/* Render connections */}
-        {uniqueConnections.map((conn) => (
-          <ConnectionLine key={conn.id} connection={conn} />
-        ))}
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <div
+          className="canvas-content"
+          style={{
+            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+            transformOrigin: "0 0",
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          {/* Render connections */}
+          {uniqueConnections.map((conn) => (
+            <ConnectionLine key={conn.id} connection={conn} />
+          ))}
 
-        {/* Render notes */}
-        {uniqueNotes.map((note) => (
-          <Note
-            key={note.id}
-            note={note}
-            onContextMenu={(e, id) => {
-              e.preventDefault();
-              setContextMenu({ x: e.clientX, y: e.clientY, itemId: id });
-            }}
-          />
-        ))}
+          {/* Render notes */}
+          {uniqueNotes.map((note) => (
+            <Note
+              key={note.id}
+              note={note}
+              onContextMenu={(e, id) => {
+                e.preventDefault();
+                setContextMenu({ x: e.clientX, y: e.clientY, itemId: id });
+              }}
+            />
+          ))}
 
-        {/* Text drag preview */}
-        {isDraggingText && textDragStart && textDragEnd && (
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              left: Math.min(textDragStart.x, textDragEnd.x),
-              top: Math.min(textDragStart.y, textDragEnd.y),
-              width: Math.abs(textDragEnd.x - textDragStart.x),
-              height: Math.abs(textDragEnd.y - textDragStart.y),
-              border: "2px dashed var(--accent-primary)",
-              background: "var(--accent-primary-bg)",
-              borderRadius: "4px",
-            }}
-          />
-        )}
-      </div>
+          {/* Text drag preview */}
+          {isDraggingText && textDragStart && textDragEnd && (
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                left: Math.min(textDragStart.x, textDragEnd.x),
+                top: Math.min(textDragStart.y, textDragEnd.y),
+                width: Math.abs(textDragEnd.x - textDragStart.x),
+                height: Math.abs(textDragEnd.y - textDragStart.y),
+                border: "2px dashed var(--accent-primary)",
+                background: "var(--accent-primary-bg)",
+                borderRadius: "4px",
+              }}
+            />
+          )}
+        </div>
+      </DndContext>
 
       {/* Context Menu */}
       {contextMenu && (
