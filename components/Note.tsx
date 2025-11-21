@@ -212,6 +212,8 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
   return (
     <div
       ref={setNodeRef}
+      className="note-container absolute p-4 rounded shadow-lg"
+      data-note-id={note.id}
       onClick={(e) => {
         handleClick(e);
         if (onClick) onClick();
@@ -222,7 +224,6 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
         // Allow wheel events to propagate for zooming
         // Don't stop propagation so Canvas can handle zoom
       }}
-      className="absolute p-4 rounded shadow-lg"
       style={style}
     >
       {/* Drag handle area - excludes the bottom-right corner where resize handle is */}

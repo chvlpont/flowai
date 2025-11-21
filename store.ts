@@ -13,6 +13,7 @@ interface Store {
   connections: Connection[];
   setConnections: (connections: Connection[]) => void;
   addConnection: (connection: Connection) => void;
+  updateConnection: (id: string, updates: Partial<Connection>) => void;
   deleteConnection: (id: string) => void;
 
   // Strokes
@@ -62,13 +63,18 @@ export const useStore = create<Store>((set) => ({
   setConnections: (connections) => set({ connections }),
   addConnection: (connection) =>
     set((s) => ({ connections: [...s.connections, connection] })),
+  updateConnection: (id, updates) =>
+    set((s) => ({
+      connections: s.connections.map((c) =>
+        c.id === id ? { ...c, ...updates } : c
+      ),
+    })),
   deleteConnection: (id) =>
     set((s) => ({ connections: s.connections.filter((c) => c.id !== id) })),
 
   strokes: [],
   setStrokes: (strokes) => set({ strokes }),
-  addStroke: (stroke) =>
-    set((s) => ({ strokes: [...s.strokes, stroke] })),
+  addStroke: (stroke) => set((s) => ({ strokes: [...s.strokes, stroke] })),
   deleteStroke: (id) =>
     set((s) => ({ strokes: s.strokes.filter((stroke) => stroke.id !== id) })),
 

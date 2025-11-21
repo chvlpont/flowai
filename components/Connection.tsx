@@ -2,6 +2,8 @@
 
 import { Connection } from "@/types";
 import { useStore } from "@/store";
+import { useState, useCallback } from "react";
+import { supabase } from "@/lib/supabase/client";
 
 export function ConnectionLine({
   connection,
@@ -13,6 +15,12 @@ export function ConnectionLine({
   const notes = useStore((s) => s.notes);
   const selectedItemId = useStore((s) => s.selectedItemId);
   const setSelectedItemId = useStore((s) => s.setSelectedItemId);
+  const updateConnection = useStore((s) => s.updateConnection);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+  const [dragCurrentPos, setDragCurrentPos] = useState({ x: 0, y: 0 });
+  const viewport = useStore((s) => s.viewport);
 
   const fromNote = notes.find((n) => n.id === connection.from_object_id);
   const toNote = notes.find((n) => n.id === connection.to_object_id);
@@ -106,6 +114,88 @@ export function ConnectionLine({
     }
   };
 
+  // Handle dragging the entire arrow for reconnection
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDragging(true);
+    setSelectedItemId(connection.id);
+
+    // Get canvas element to convert screen coordinates to canvas coordinates
+    const canvasElement = document.querySelector(
+      ".canvas-content"
+    ) as HTMLElement;
+    const canvasRect = canvasElement?.getBoundingClientRect();
+
+    if (canvasRect) {
+      // Convert screen position to canvas coordinates accounting for zoom and pan
+      const canvasX =
+        (e.clientX - canvasRect.left - viewport.x) / viewport.zoom;
+      const canvasY = (e.clientY - canvasRect.top - viewport.y) / viewport.zoom;
+
+      setDragStartPos({ x: canvasX, y: canvasY });
+      setDragCurrentPos({ x: canvasX, y: canvasY });
+    }
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (canvasRect) {
+        // Convert screen position to canvas coordinates
+        const canvasX =
+          (moveEvent.clientX - canvasRect.left - viewport.x) / viewport.zoom;
+        const canvasY =
+          (moveEvent.clientY - canvasRect.top - viewport.y) / viewport.zoom;
+        setDragCurrentPos({ x: canvasX, y: canvasY });
+      }
+    };
+
+    const handleMouseUp = async (upEvent: MouseEvent) => {
+      // Find note under cursor
+      const elements = document.elementsFromPoint(
+        upEvent.clientX,
+        upEvent.clientY
+      );
+      const noteElement = elements.find((el) =>
+        el.classList.contains("note-container")
+      );
+
+      if (noteElement) {
+        const noteId = noteElement.getAttribute("data-note-id");
+        const targetNote = notes.find((n) => n.id === noteId);
+
+        if (targetNote) {
+          // Determine whether to reconnect start or end based on which is closer to drag start
+          const dragDistance = Math.sqrt(
+            (upEvent.clientX -
+              (dragStartPos.x * viewport.zoom +
+                viewport.x +
+                (canvasRect?.left || 0))) **
+              2 +
+              (upEvent.clientY -
+                (dragStartPos.y * viewport.zoom +
+                  viewport.y +
+                  (canvasRect?.top || 0))) **
+                2
+          );
+
+          // If significant drag distance, reconnect the end point to new note
+          if (dragDistance > 20 && targetNote.id !== connection.to_object_id) {
+            updateConnection(connection.id, { to_object_id: targetNote.id });
+            await supabase
+              .from("board_connections")
+              .update({ to_object_id: targetNote.id })
+              .eq("id", connection.id);
+          }
+        }
+      }
+
+      setIsDragging(false);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
   return (
     <svg
       className="absolute pointer-events-none"
@@ -148,15 +238,19 @@ export function ConnectionLine({
         </filter>
       </defs>
 
-      {/* Invisible wider path for easier clicking */}
+      {/* Invisible wider path for easier clicking and dragging */}
       <path
         d={pathData}
         stroke="transparent"
         strokeWidth="12"
         fill="none"
-        style={{ pointerEvents: "auto", cursor: "pointer" }}
+        style={{
+          pointerEvents: "auto",
+          cursor: isDragging ? "grabbing" : "grab",
+        }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        onMouseDown={handleMouseDown}
       />
 
       {/* Selection highlight */}
@@ -185,8 +279,23 @@ export function ConnectionLine({
         style={{
           filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.1))",
           pointerEvents: "none",
+          opacity: isDragging ? 0.3 : 1,
         }}
       />
+
+      {/* Visual feedback during drag */}
+      {isDragging && (
+        <text
+          x={midX - minX}
+          y={midY - minY - 10}
+          textAnchor="middle"
+          fill="var(--accent-primary)"
+          fontSize="12"
+          style={{ pointerEvents: "none" }}
+        >
+          Drop on note to reconnect
+        </text>
+      )}
     </svg>
   );
 }
