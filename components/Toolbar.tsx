@@ -22,6 +22,7 @@ export function Toolbar() {
   const tools = [
     { id: "select" as const, icon: MousePointer2, label: "Pointer" },
     { id: "note" as const, icon: StickyNote, label: "Note" },
+    { id: "text" as const, icon: Type, label: "Text" },
     { id: "pen" as const, icon: Pencil, label: "Pen", expandable: true },
     { id: "arrow" as const, icon: ArrowRight, label: "Arrow" },
   ];
