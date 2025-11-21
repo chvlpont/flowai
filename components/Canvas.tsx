@@ -1164,6 +1164,34 @@ export function Canvas({ boardId }: { boardId: string }) {
     setMarqueeEnd(null);
   };
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    // Middle mouse button (button 1) for panning - works everywhere
+    if (e.button === 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      let lastX = e.clientX;
+      let lastY = e.clientY;
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const dx = moveEvent.clientX - lastX;
+        const dy = moveEvent.clientY - lastY;
+        panViewport(dx, dy);
+
+        // Update last position for next frame
+        lastX = moveEvent.clientX;
+        lastY = moveEvent.clientY;
+      };
+
+      const handleMouseUp = () => {
+        setIsPanning(false);
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      return;
+    }
+
     // Try to start marquee selection first
     if (handleMarqueeStart(e)) {
       return;
@@ -1176,29 +1204,6 @@ export function Canvas({ boardId }: { boardId: string }) {
       target.tagName === "svg";
 
     if (!isCanvasBackground || selectedTool !== "select") return;
-
-    setIsPanning(true);
-    let lastX = e.clientX;
-    let lastY = e.clientY;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const dx = moveEvent.clientX - lastX;
-      const dy = moveEvent.clientY - lastY;
-      panViewport(dx, dy);
-
-      // Update last position for next frame
-      lastX = moveEvent.clientX;
-      lastY = moveEvent.clientY;
-    };
-
-    const handleMouseUp = () => {
-      setIsPanning(false);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
   };
 
   // Mouse handlers for cursor feedback and text dragging
@@ -1298,12 +1303,18 @@ export function Canvas({ boardId }: { boardId: string }) {
       className="relative w-full h-screen overflow-hidden"
       onClick={handleCanvasClick}
       onMouseDown={(e) => {
-        handleMouseDown(e);
         handleCanvasMouseDown(e);
+        handleMouseDown(e);
       }}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
+      // Prevent context menu on middle mouse button
+      onContextMenu={(e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+        }
+      }}
       // Scroll Wheel handling
       onWheel={(e) => {
         e.preventDefault();
