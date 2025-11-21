@@ -34,6 +34,10 @@ export function Canvas({ boardId }: { boardId: string }) {
   const selectedItemIds = useStore((s) => s.selectedItemIds);
   const setSelectedItemIds = useStore((s) => s.setSelectedItemIds);
   const clearSelection = useStore((s) => s.clearSelection);
+  const cursors = useStore((s) => s.cursors);
+  const setCursors = useStore((s) => s.setCursors);
+  const updateCursor = useStore((s) => s.updateCursor);
+  const removeCursor = useStore((s) => s.removeCursor);
   const selectedTool = useStore((s) => s.selectedTool);
   const setSelectedTool = useStore((s) => s.setSelectedTool);
   const viewport = useStore((s) => s.viewport);
@@ -182,6 +186,83 @@ export function Canvas({ boardId }: { boardId: string }) {
     checkAuthorization();
   }, [boardId]);
 
+  // Generate consistent color for user based on their ID
+  const getUserColor = (userId: string) => {
+    const colors = [
+      "#ef4444",
+      "#f97316",
+      "#f59e0b",
+      "#eab308",
+      "#84cc16",
+      "#22c55e",
+      "#10b981",
+      "#14b8a6",
+      "#06b6d4",
+      "#0ea5e9",
+      "#3b82f6",
+      "#6366f1",
+      "#8b5cf6",
+      "#a855f7",
+      "#d946ef",
+      "#ec4899",
+      "#f43f5e",
+    ];
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      hash = ((hash << 5) - hash + userId.charCodeAt(i)) & 0xffffffff;
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // Handle mouse move for cursor tracking
+  const handleCursorMove = async (e: React.MouseEvent) => {
+    if (!user || !canvasRef.current) {
+      console.log("Cursor move blocked:", {
+        user: !!user,
+        canvas: !!canvasRef.current,
+      });
+      return;
+    }
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+    const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+    // Throttle cursor updates (only every 100ms)
+    const now = Date.now();
+    if (
+      !handleCursorMove.lastUpdate ||
+      now - handleCursorMove.lastUpdate > 100
+    ) {
+      handleCursorMove.lastUpdate = now;
+
+      const cursorData = {
+        user_id: user.id,
+        display_name:
+          user.user_metadata?.display_name ||
+          user.email?.split("@")[0] ||
+          "Anonymous",
+        cursor_x: x,
+        cursor_y: y,
+        color: getUserColor(user.id),
+        board_id: boardId,
+        updated_at: new Date().toISOString(),
+      };
+
+      console.log("Sending cursor data:", cursorData);
+
+      // Update local state immediately
+      updateCursor(cursorData);
+
+      // Send to Supabase (don't await to not block UI)
+      supabase
+        .from("board_presence")
+        .upsert(cursorData, { onConflict: "user_id,board_id" })
+        .then((result) => console.log("Cursor update result:", result));
+    }
+  };
+  handleCursorMove.lastUpdate = 0;
+
   // Redirect if not authorized
   useEffect(() => {
     if (isAuthorized === false) {
@@ -221,6 +302,14 @@ export function Canvas({ boardId }: { boardId: string }) {
       .select("*")
       .eq("board_id", boardId)
       .then(({ data }) => setStrokes(data || []));
+
+    // Load cursor presence
+    supabase
+      .from("board_presence")
+      .select("*")
+      .eq("board_id", boardId)
+      .neq("user_id", user?.id || "")
+      .then(({ data }) => setCursors(data || []));
 
     // Subscribe to real-time changes
     const channel = supabase
@@ -263,9 +352,43 @@ export function Canvas({ boardId }: { boardId: string }) {
         { event: "DELETE", schema: "public", table: "board_strokes" },
         (payload) => deleteStroke(payload.old.id)
       )
+      // Cursor presence
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "board_presence" },
+        (payload) => {
+          if (payload.new.user_id !== user?.id) {
+            updateCursor(payload.new as any);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "board_presence" },
+        (payload) => {
+          if (payload.new.user_id !== user?.id) {
+            updateCursor(payload.new as any);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "board_presence" },
+        (payload) => {
+          removeCursor(payload.old.user_id);
+        }
+      )
       .subscribe();
 
     return () => {
+      // Clean up presence when leaving
+      if (user) {
+        supabase
+          .from("board_presence")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("board_id", boardId);
+      }
       supabase.removeChannel(channel);
     };
   }, [boardId, isAuthorized]);
@@ -866,6 +989,7 @@ export function Canvas({ boardId }: { boardId: string }) {
     handleTextDragMove(e);
     handlePenDrawMove(e);
     handleMarqueeMove(e);
+    handleCursorMove(e);
   };
 
   const handleMouseUp = () => {
@@ -1221,6 +1345,47 @@ export function Canvas({ boardId }: { boardId: string }) {
               }}
             />
           )}
+
+          {/* Render other users' cursors */}
+          {cursors
+            .filter((cursor) => cursor.user_id !== user?.id)
+            .map((cursor) => (
+              <div
+                key={cursor.user_id}
+                className="absolute pointer-events-none z-[1001]"
+                style={{
+                  left: cursor.cursor_x,
+                  top: cursor.cursor_y,
+                  transform: "translate(-2px, -2px)",
+                }}
+              >
+                {/* Cursor */}
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  className="drop-shadow-lg"
+                >
+                  <path
+                    d="M0 0L0 16L5 12L8 18L11 16L8 10L16 8L0 0Z"
+                    fill={cursor.color}
+                    stroke="white"
+                    strokeWidth="1"
+                  />
+                </svg>
+                {/* User name */}
+                <div
+                  className="absolute top-5 left-3 px-2 py-1 rounded text-xs font-medium text-white shadow-lg"
+                  style={{
+                    backgroundColor: cursor.color,
+                    fontSize: "11px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {cursor.display_name}
+                </div>
+              </div>
+            ))}
 
           {/* Render pen strokes */}
           <svg

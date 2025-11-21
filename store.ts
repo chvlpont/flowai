@@ -52,6 +52,7 @@ interface Store {
   cursors: Cursor[];
   setCursors: (cursors: Cursor[]) => void;
   updateCursor: (cursor: Cursor) => void;
+  removeCursor: (userId: string) => void;
 
   // Viewport (pan & zoom)
   viewport: { x: number; y: number; zoom: number };
@@ -132,6 +133,10 @@ export const useStore = create<Store>((set) => ({
       cursors: s.cursors.some((c) => c.user_id === cursor.user_id)
         ? s.cursors.map((c) => (c.user_id === cursor.user_id ? cursor : c))
         : [...s.cursors, cursor],
+    })),
+  removeCursor: (userId) =>
+    set((s) => ({
+      cursors: s.cursors.filter((c) => c.user_id !== userId),
     })),
 
   viewport: { x: 0, y: 0, zoom: 1 },
