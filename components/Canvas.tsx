@@ -636,6 +636,10 @@ export function Canvas({ boardId }: { boardId: string }) {
         ];
         setSelectedItemIds(allItemIds);
         setSelectedItemId(null);
+      } else if (e.ctrlKey && e.key === "v") {
+        // Paste functionality for screenshots
+        e.preventDefault();
+        handlePaste();
       }
     };
 
@@ -651,6 +655,100 @@ export function Canvas({ boardId }: { boardId: string }) {
     setSelectedItemIds,
     setSelectedItemId,
   ]);
+
+  // Handle paste functionality for screenshots
+  const handlePaste = async () => {
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+
+      for (const clipboardItem of clipboardItems) {
+        for (const type of clipboardItem.types) {
+          if (type.startsWith("image/")) {
+            const blob = await clipboardItem.getType(type);
+            await handleImagePaste(blob);
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.log("Failed to read clipboard:", err);
+
+      // Fallback: try to listen for paste event on a hidden input
+      const input = document.createElement("input");
+      input.style.position = "fixed";
+      input.style.left = "-9999px";
+      document.body.appendChild(input);
+      input.focus();
+
+      setTimeout(() => {
+        document.body.removeChild(input);
+      }, 100);
+    }
+  };
+
+  // Handle image paste
+  const handleImagePaste = async (imageBlob: Blob) => {
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64Data = e.target?.result as string;
+
+        // Create image object to get dimensions
+        const img = new Image();
+        img.onload = async () => {
+          // Calculate position (center of current viewport)
+          const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+          const centerY =
+            (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+
+          // Calculate size (scale image if too large)
+          let width = img.width;
+          let height = img.height;
+          const maxWidth = 400;
+          const maxHeight = 300;
+
+          if (width > maxWidth || height > maxHeight) {
+            const scale = Math.min(maxWidth / width, maxHeight / height);
+            width *= scale;
+            height *= scale;
+          }
+
+          // Position image so it's centered
+          const x = centerX - width / 2;
+          const y = centerY - height / 2;
+
+          // Create image object in database
+          const { data } = await supabase
+            .from("board_objects")
+            .insert({
+              board_id: boardId,
+              type: "image",
+              content: base64Data,
+              x,
+              y,
+              width,
+              height,
+              color: "transparent",
+            })
+            .select()
+            .single();
+
+          if (data) {
+            addNote(data);
+            setSelectedTool("select");
+            setSelectedItemId(data.id);
+          }
+        };
+
+        img.src = base64Data;
+      };
+
+      reader.readAsDataURL(imageBlob);
+    } catch (error) {
+      console.error("Failed to handle image paste:", error);
+    }
+  };
 
   // Generate random note color
   const getRandomNoteColor = () => {

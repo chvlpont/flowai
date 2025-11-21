@@ -249,65 +249,83 @@ export function Note({
           zIndex: 1, // Lower than resize handle
         }}
       />
-      <textarea
-        className="w-full h-full bg-transparent border-none outline-none resize-none"
-        value={localContent}
-        onChange={(e) => {
-          const newContent = e.target.value;
-          setLocalContent(newContent);
 
-          // Save immediately on word boundaries (space, enter, punctuation)
-          const shouldSaveImmediately = /[ \n.,!?;:()[\]{}"']$/.test(
-            newContent.slice(-1)
-          );
+      {/* Render content based on note type */}
+      {note.type === "image" ? (
+        <img
+          src={note.content}
+          alt="Pasted screenshot"
+          className="w-full h-full object-contain rounded pointer-events-none"
+          style={{
+            userSelect: "none",
+            imageRendering: "auto",
+          }}
+          onError={(e) => {
+            console.error("Failed to load image:", e);
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      ) : (
+        <textarea
+          className="w-full h-full bg-transparent border-none outline-none resize-none"
+          value={localContent}
+          onChange={(e) => {
+            const newContent = e.target.value;
+            setLocalContent(newContent);
 
-          if (shouldSaveImmediately) {
+            // Save immediately on word boundaries (space, enter, punctuation)
+            const shouldSaveImmediately = /[ \n.,!?;:()[\]{}"']$/.test(
+              newContent.slice(-1)
+            );
+
+            if (shouldSaveImmediately) {
+              // Clear any pending debounced save
+              if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+              }
+              // Save immediately
+              updateNote(note.id, { content: newContent });
+              supabase
+                .from("board_objects")
+                .update({ content: newContent })
+                .eq("id", note.id);
+            } else {
+              // Use very short debounce for other characters
+              debouncedSave(newContent);
+            }
+          }}
+          onFocus={(e) => {
+            // When focused, allow text selection
+            setIsEditing(true);
+            if (e.currentTarget) {
+              e.currentTarget.style.pointerEvents = "auto";
+            }
+          }}
+          onBlur={async (e) => {
+            setIsEditing(false);
             // Clear any pending debounced save
             if (saveTimeoutRef.current) {
               clearTimeout(saveTimeoutRef.current);
               saveTimeoutRef.current = null;
             }
-            // Save immediately
-            updateNote(note.id, { content: newContent });
-            supabase
+            // Save immediately on blur
+            updateNote(note.id, { content: localContent });
+            await supabase
               .from("board_objects")
-              .update({ content: newContent })
+              .update({ content: localContent })
               .eq("id", note.id);
-          } else {
-            // Use very short debounce for other characters
-            debouncedSave(newContent);
-          }
-        }}
-        onFocus={(e) => {
-          // When focused, allow text selection
-          setIsEditing(true);
-          if (e.currentTarget) {
-            e.currentTarget.style.pointerEvents = "auto";
-          }
-        }}
-        onBlur={async (e) => {
-          setIsEditing(false);
-          // Clear any pending debounced save
-          if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-            saveTimeoutRef.current = null;
-          }
-          // Save immediately on blur
-          updateNote(note.id, { content: localContent });
-          await supabase
-            .from("board_objects")
-            .update({ content: localContent })
-            .eq("id", note.id);
-          // When not focused, allow dragging through
-          if (e.currentTarget) {
-            e.currentTarget.style.pointerEvents = "none";
-          }
-        }}
-        style={{
-          color: "var(--text-primary)",
-          pointerEvents: "none", // Start with none to allow dragging
-        }}
-      />
+            // When not focused, allow dragging through
+            if (e.currentTarget) {
+              e.currentTarget.style.pointerEvents = "none";
+            }
+          }}
+          style={{
+            color: "var(--text-primary)",
+            pointerEvents: "none", // Start with none to allow dragging
+          }}
+        />
+      )}
 
       {/* Resize Handle - Only show when selected */}
       {isSelected && (
