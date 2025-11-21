@@ -652,6 +652,25 @@ export function Canvas({ boardId }: { boardId: string }) {
     setSelectedItemId,
   ]);
 
+  // Generate random note color
+  const getRandomNoteColor = () => {
+    const colors = [
+      "#9ca3af", // Gray-400
+      "#a1a1aa", // Zinc-400
+      "#94a3b8", // Slate-400
+      "#93c5fd", // Blue-300
+      "#86efac", // Green-300
+      "#fca5a5", // Red-300
+      "#c4b5fd", // Violet-300
+      "#fde047", // Yellow-300
+      "#6ee7b7", // Emerald-300
+      "#7dd3fc", // Sky-300
+      "#a3a3a3", // Neutral-400
+      "#fbbf24", // Amber-400
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+  };
+
   const createObject = async (x: number, y: number, type: string) => {
     let objectData: any = {
       board_id: boardId,
@@ -668,7 +687,7 @@ export function Canvas({ boardId }: { boardId: string }) {
           content: "New note",
           width: 200,
           height: 150,
-          color: "#fef3c7",
+          color: getRandomNoteColor(),
         };
         break;
       case "text":
