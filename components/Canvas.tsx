@@ -8,6 +8,7 @@ import { ConnectionLine } from "./Connection";
 import { Toolbar } from "./Toolbar";
 import { ThemeToggle } from "./ThemeToggle";
 import { ContextMenu } from "./ContextMenu";
+import { InviteModal } from "./InviteModal";
 import { Board } from "@/types";
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -56,6 +57,8 @@ export function Canvas({ boardId }: { boardId: string }) {
   const [currentStroke, setCurrentStroke] = useState<
     { x: number; y: number }[]
   >([]);
+  const [user, setUser] = useState<any>(null);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   // @dnd-kit sensors
   const sensors = useSensors(
@@ -103,7 +106,44 @@ export function Canvas({ boardId }: { boardId: string }) {
     (stroke, index, self) => index === self.findIndex((s) => s.id === stroke.id)
   );
 
+  // Check user authorization
   useEffect(() => {
+    const checkAuthorization = async () => {
+      // Get current user
+      const { data: userData } = await supabase.auth.getUser();
+      const currentUser = userData.user;
+      setUser(currentUser);
+
+      if (!currentUser) {
+        setIsAuthorized(false);
+        return;
+      }
+
+      // Check if user is a collaborator on this board
+      const { data: collaborator } = await supabase
+        .from("board_collaborators")
+        .select("*")
+        .eq("board_id", boardId)
+        .eq("user_id", currentUser.id)
+        .single();
+
+      setIsAuthorized(!!collaborator);
+    };
+
+    checkAuthorization();
+  }, [boardId]);
+
+  // Redirect if not authorized
+  useEffect(() => {
+    if (isAuthorized === false) {
+      router.push("/boards");
+    }
+  }, [isAuthorized, router]);
+
+  useEffect(() => {
+    // Only load data if user is authorized
+    if (isAuthorized !== true) return;
+
     // Load board info
     supabase
       .from("boards")
@@ -179,7 +219,7 @@ export function Canvas({ boardId }: { boardId: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [boardId]);
+  }, [boardId, isAuthorized]);
 
   // Delete item function
   const deleteItem = useCallback(
@@ -543,6 +583,24 @@ export function Canvas({ boardId }: { boardId: string }) {
       .join(" ")}`;
   };
 
+  // Show loading while checking authorization
+  if (isAuthorized === null) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>Checking access...</p>
+      </div>
+    );
+  }
+
+  // Show unauthorized message (though it should redirect)
+  if (isAuthorized === false) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>You don't have access to this board.</p>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={canvasRef}
@@ -595,9 +653,7 @@ export function Canvas({ boardId }: { boardId: string }) {
             <span>Dashboard</span>
           </button>
           <span style={{ color: "var(--text-secondary)" }}>/</span>
-          <span className="font-semibold">
-            {board?.title || "Loading..."}
-          </span>
+          <span className="font-semibold">{board?.title || "Loading..."}</span>
         </div>
       </div>
 
@@ -630,6 +686,7 @@ export function Canvas({ boardId }: { boardId: string }) {
             Connection mode: Click another note
           </span>
         )}
+        <InviteModal boardId={boardId} />
       </div>
 
       {/* Zoom Controls & Theme Toggle */}

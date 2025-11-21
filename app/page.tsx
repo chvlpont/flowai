@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { Sun, Moon } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
@@ -8,7 +8,7 @@ import LoginModal from "@/components/LoginModal";
 import SignupModal from "@/components/SignUpModal";
 import { useSearchParams } from "next/navigation";
 
-const HomePage = () => {
+const HomePageContent = () => {
   const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -328,6 +328,14 @@ const HomePage = () => {
         onSwitchToLogin={() => setIsLoginOpen(true)}
       />
     </div>
+  );
+};
+
+const HomePage = () => {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomePageContent />
+    </Suspense>
   );
 };
 

@@ -1,19 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-export default function InvitePage({ params }: { params: { code: string } }) {
+export default function InvitePage({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}) {
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const { code } = use(params);
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
     const acceptInvite = async () => {
       // Get invite
       const { data: invite } = await supabase
         .from("board_invites")
         .select("*")
-        .eq("invite_code", params.code)
+        .eq("invite_code", code)
         .single();
 
       if (!invite) {
@@ -24,7 +36,7 @@ export default function InvitePage({ params }: { params: { code: string } }) {
       // Add user as collaborator
       await supabase.from("board_collaborators").insert({
         board_id: invite.board_id,
-        user_id: "temp-user-id",
+        user_id: user.id,
         role: "editor",
       });
 
@@ -39,7 +51,7 @@ export default function InvitePage({ params }: { params: { code: string } }) {
     };
 
     acceptInvite();
-  }, [params.code, router]);
+  }, [code, router, user]);
 
   return (
     <div className="flex items-center justify-center h-screen">
