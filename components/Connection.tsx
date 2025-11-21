@@ -32,15 +32,37 @@ export function ConnectionLine({
   const dy = toCenterY - fromCenterY;
   const angle = Math.atan2(dy, dx);
 
-  // Calculate start point on edge of fromNote
-  const fromRadius = Math.min(fromNote.width, fromNote.height) / 2;
-  const x1 = fromCenterX + Math.cos(angle) * fromRadius;
-  const y1 = fromCenterY + Math.sin(angle) * fromRadius;
+  // Calculate start point on edge of fromNote (proper rectangular edge intersection)
+  const fromHalfWidth = fromNote.width / 2;
+  const fromHalfHeight = fromNote.height / 2;
+  let x1, y1;
 
-  // Calculate end point on edge of toNote
-  const toRadius = Math.min(toNote.width, toNote.height) / 2;
-  const x2 = toCenterX - Math.cos(angle) * toRadius;
-  const y2 = toCenterY - Math.sin(angle) * toRadius;
+  // Determine which edge of the rectangle the line intersects
+  if (Math.abs(dx) / fromHalfWidth > Math.abs(dy) / fromHalfHeight) {
+    // Intersects left or right edge
+    x1 = fromCenterX + (dx > 0 ? fromHalfWidth : -fromHalfWidth);
+    y1 = fromCenterY + (dy * fromHalfWidth) / Math.abs(dx);
+  } else {
+    // Intersects top or bottom edge
+    x1 = fromCenterX + (dx * fromHalfHeight) / Math.abs(dy);
+    y1 = fromCenterY + (dy > 0 ? fromHalfHeight : -fromHalfHeight);
+  }
+
+  // Calculate end point on edge of toNote (proper rectangular edge intersection)
+  const toHalfWidth = toNote.width / 2;
+  const toHalfHeight = toNote.height / 2;
+  let x2, y2;
+
+  // Determine which edge of the rectangle the line intersects
+  if (Math.abs(dx) / toHalfWidth > Math.abs(dy) / toHalfHeight) {
+    // Intersects left or right edge
+    x2 = toCenterX + (dx > 0 ? -toHalfWidth : toHalfWidth);
+    y2 = toCenterY - (dy * toHalfWidth) / Math.abs(dx);
+  } else {
+    // Intersects top or bottom edge
+    x2 = toCenterX - (dx * toHalfHeight) / Math.abs(dy);
+    y2 = toCenterY + (dy > 0 ? -toHalfHeight : toHalfHeight);
+  }
 
   // Create curved path (Miro-style)
   const distance = Math.sqrt(dx * dx + dy * dy);
@@ -92,7 +114,7 @@ export function ConnectionLine({
         top: minY,
         width: width,
         height: height,
-        zIndex: 5,
+        zIndex: 15, // Higher than notes (10) but lower than selected notes (20)
         overflow: "visible",
       }}
     >
