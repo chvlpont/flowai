@@ -45,21 +45,24 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
   }, [note.content, isEditing]);
 
   // Debounced save function
-  const debouncedSave = useCallback(async (content: string) => {
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
+  const debouncedSave = useCallback(
+    async (content: string) => {
+      // Clear existing timeout
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
 
-    // Set new timeout to save after 100ms of no typing (much faster!)
-    saveTimeoutRef.current = setTimeout(async () => {
-      updateNote(note.id, { content });
-      await supabase
-        .from("board_objects")
-        .update({ content })
-        .eq("id", note.id);
-    }, 100);
-  }, [note.id, updateNote]);
+      // Set new timeout to save after 100ms of no typing (much faster!)
+      saveTimeoutRef.current = setTimeout(async () => {
+        updateNote(note.id, { content });
+        await supabase
+          .from("board_objects")
+          .update({ content })
+          .eq("id", note.id);
+      }, 100);
+    },
+    [note.id, updateNote]
+  );
 
   // Local state for smooth resizing
   const [resizeOffset, setResizeOffset] = useState({ width: 0, height: 0 });
@@ -75,6 +78,7 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
 
   // Resize handlers using mouse events
   const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     setIsResizing(true);
     resizeStartSize.current = { width: note.width, height: note.height };
@@ -83,6 +87,7 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
     const startY = e.clientY;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault();
       const dx = (moveEvent.clientX - startX) / viewport.zoom;
       const dy = (moveEvent.clientY - startY) / viewport.zoom;
 
@@ -95,7 +100,8 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
       });
     };
 
-    const handleMouseUp = async () => {
+    const handleMouseUp = async (upEvent: MouseEvent) => {
+      upEvent.preventDefault();
       const newWidth = Math.max(100, note.width + resizeOffset.width);
       const newHeight = Math.max(50, note.height + resizeOffset.height);
 
@@ -167,7 +173,7 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
     height: isResizing ? note.height + resizeOffset.height : note.height,
     backgroundColor: note.color,
     touchAction: "none" as const,
-    cursor: isDragging ? "grabbing" : "grab",
+    cursor: "default", // Default cursor for the note container
     zIndex: isDragging || isResizing ? 30 : isSelected ? 20 : 10,
     outline: isSelected ? "3px solid var(--accent-primary)" : "none",
     outlineOffset: "2px",
@@ -186,8 +192,6 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
       onClick={(e) => {
         handleClick(e);
         if (onClick) onClick();
@@ -197,6 +201,18 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
       className="absolute p-4 rounded shadow-lg"
       style={style}
     >
+      {/* Drag handle area - excludes the bottom-right corner where resize handle is */}
+      <div
+        {...(isResizing ? {} : listeners)} // Only apply drag listeners when not resizing
+        {...attributes}
+        className="absolute inset-0"
+        style={{
+          right: isSelected ? 20 : 0, // Leave more space for resize handle when selected
+          bottom: isSelected ? 20 : 0, // Leave more space for resize handle when selected
+          cursor: isDragging ? "grabbing" : isResizing ? "default" : "grab",
+          zIndex: 1, // Lower than resize handle
+        }}
+      />
       <textarea
         className="w-full h-full bg-transparent border-none outline-none resize-none"
         value={localContent}
@@ -205,7 +221,9 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
           setLocalContent(newContent);
 
           // Save immediately on word boundaries (space, enter, punctuation)
-          const shouldSaveImmediately = /[ \n.,!?;:()[\]{}"']$/.test(newContent.slice(-1));
+          const shouldSaveImmediately = /[ \n.,!?;:()[\]{}"']$/.test(
+            newContent.slice(-1)
+          );
 
           if (shouldSaveImmediately) {
             // Clear any pending debounced save
@@ -261,8 +279,8 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
           onMouseDown={handleResizeStart}
           className="absolute resize-handle"
           style={{
-            right: -4,
-            bottom: -4,
+            right: -8,
+            bottom: -8,
             width: 16,
             height: 16,
             background: "var(--accent-primary)",
@@ -270,9 +288,11 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
             borderRadius: "50%",
             cursor: "nwse-resize",
             touchAction: "none",
-            zIndex: 100,
+            zIndex: 1000, // Higher z-index to ensure it's above the drag handle
             boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
           }}
+          onMouseOver={(e) => e.stopPropagation()}
+          onMouseEnter={(e) => e.stopPropagation()}
         />
       )}
     </div>
