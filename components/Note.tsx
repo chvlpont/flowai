@@ -237,94 +237,153 @@ export function Note({
       }}
       style={style}
     >
-      {/* Drag handle area - excludes the bottom-right corner where resize handle is */}
-      <div
-        {...(isResizing ? {} : listeners)} // Only apply drag listeners when not resizing
-        {...attributes}
-        className="absolute inset-0"
-        style={{
-          right: isSelected ? 20 : 0, // Leave more space for resize handle when selected
-          bottom: isSelected ? 20 : 0, // Leave more space for resize handle when selected
-          cursor: isDragging ? "grabbing" : isResizing ? "default" : "grab",
-          zIndex: 1, // Lower than resize handle
-        }}
-      />
-
       {/* Render content based on note type */}
       {note.type === "image" ? (
-        <img
-          src={note.content}
-          alt="Pasted screenshot"
-          className="w-full h-full object-contain rounded pointer-events-none"
-          style={{
-            userSelect: "none",
-            imageRendering: "auto",
-          }}
-          onError={(e) => {
-            console.error("Failed to load image:", e);
-            e.currentTarget.style.display = "none";
-          }}
-        />
+        <>
+          {/* Drag handle for images - covers the entire image */}
+          <div
+            {...(isResizing ? {} : listeners)}
+            {...attributes}
+            className="absolute inset-0"
+            style={{
+              right: isSelected ? 20 : 0,
+              bottom: isSelected ? 20 : 0,
+              cursor: isDragging ? "grabbing" : isResizing ? "default" : "grab",
+              zIndex: 1,
+            }}
+          />
+          <img
+            src={note.content}
+            alt="Pasted screenshot"
+            className="w-full h-full object-contain rounded pointer-events-none"
+            style={{
+              userSelect: "none",
+              imageRendering: "auto",
+            }}
+            onError={(e) => {
+              console.error("Failed to load image:", e);
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        </>
       ) : (
-        <textarea
-          className="w-full h-full bg-transparent border-none outline-none resize-none"
-          value={localContent}
-          onChange={(e) => {
-            const newContent = e.target.value;
-            setLocalContent(newContent);
+        <>
+          {/* Drag handle for text notes - only covers border area when editing */}
+          {!isEditing && (
+            <div
+              {...listeners}
+              {...attributes}
+              className="absolute inset-0"
+              style={{
+                right: isSelected ? 20 : 0,
+                bottom: isSelected ? 20 : 0,
+                cursor: isDragging ? "grabbing" : "grab",
+                zIndex: 1,
+              }}
+            />
+          )}
 
-            // Save immediately on word boundaries (space, enter, punctuation)
-            const shouldSaveImmediately = /[ \n.,!?;:()[\]{}"']$/.test(
-              newContent.slice(-1)
-            );
+          {/* Drag border for text notes when editing - thin border for dragging */}
+          {isEditing && (
+            <>
+              {/* Top border */}
+              <div
+                {...listeners}
+                {...attributes}
+                className="absolute top-0 left-0 right-0 h-2"
+                style={{
+                  cursor: isDragging ? "grabbing" : "grab",
+                  zIndex: 1,
+                }}
+              />
+              {/* Left border */}
+              <div
+                {...listeners}
+                {...attributes}
+                className="absolute top-0 left-0 bottom-0 w-2"
+                style={{
+                  cursor: isDragging ? "grabbing" : "grab",
+                  zIndex: 1,
+                }}
+              />
+              {/* Right border */}
+              <div
+                {...listeners}
+                {...attributes}
+                className="absolute top-0 right-0 bottom-0 w-2"
+                style={{
+                  right: isSelected ? 18 : 0,
+                  cursor: isDragging ? "grabbing" : "grab",
+                  zIndex: 1,
+                }}
+              />
+              {/* Bottom border */}
+              <div
+                {...listeners}
+                {...attributes}
+                className="absolute bottom-0 left-0 right-0 h-2"
+                style={{
+                  bottom: isSelected ? 18 : 0,
+                  cursor: isDragging ? "grabbing" : "grab",
+                  zIndex: 1,
+                }}
+              />
+            </>
+          )}
 
-            if (shouldSaveImmediately) {
+          <textarea
+            className="w-full h-full bg-transparent border-none outline-none resize-none"
+            value={localContent}
+            onChange={(e) => {
+              const newContent = e.target.value;
+              setLocalContent(newContent);
+
+              // Save immediately on word boundaries (space, enter, punctuation)
+              const shouldSaveImmediately = /[ \n.,!?;:()[\]{}"']$/.test(
+                newContent.slice(-1)
+              );
+
+              if (shouldSaveImmediately) {
+                // Clear any pending debounced save
+                if (saveTimeoutRef.current) {
+                  clearTimeout(saveTimeoutRef.current);
+                  saveTimeoutRef.current = null;
+                }
+                // Save immediately
+                updateNote(note.id, { content: newContent });
+                supabase
+                  .from("board_objects")
+                  .update({ content: newContent })
+                  .eq("id", note.id);
+              } else {
+                // Use very short debounce for other characters
+                debouncedSave(newContent);
+              }
+            }}
+            onFocus={(e) => {
+              setIsEditing(true);
+            }}
+            onBlur={async (e) => {
+              setIsEditing(false);
               // Clear any pending debounced save
               if (saveTimeoutRef.current) {
                 clearTimeout(saveTimeoutRef.current);
                 saveTimeoutRef.current = null;
               }
-              // Save immediately
-              updateNote(note.id, { content: newContent });
-              supabase
+              // Save immediately on blur
+              updateNote(note.id, { content: localContent });
+              await supabase
                 .from("board_objects")
-                .update({ content: newContent })
+                .update({ content: localContent })
                 .eq("id", note.id);
-            } else {
-              // Use very short debounce for other characters
-              debouncedSave(newContent);
-            }
-          }}
-          onFocus={(e) => {
-            // When focused, allow text selection
-            setIsEditing(true);
-            if (e.currentTarget) {
-              e.currentTarget.style.pointerEvents = "auto";
-            }
-          }}
-          onBlur={async (e) => {
-            setIsEditing(false);
-            // Clear any pending debounced save
-            if (saveTimeoutRef.current) {
-              clearTimeout(saveTimeoutRef.current);
-              saveTimeoutRef.current = null;
-            }
-            // Save immediately on blur
-            updateNote(note.id, { content: localContent });
-            await supabase
-              .from("board_objects")
-              .update({ content: localContent })
-              .eq("id", note.id);
-            // When not focused, allow dragging through
-            if (e.currentTarget) {
-              e.currentTarget.style.pointerEvents = "none";
-            }
-          }}
-          style={{
-            color: "var(--text-primary)",
-            pointerEvents: "none", // Start with none to allow dragging
-          }}
-        />
+            }}
+            style={{
+              color: "var(--text-primary)",
+              cursor: "text", // Show text cursor for textarea
+              pointerEvents: "auto", // Always allow text interaction
+            }}
+          />
+        </>
       )}
 
       {/* Resize Handle - Only show when selected */}
