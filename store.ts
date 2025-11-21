@@ -23,6 +23,12 @@ interface Store {
   updateStroke: (id: string, updates: Partial<Stroke>) => void;
   deleteStroke: (id: string) => void;
 
+  // Stroke settings
+  strokeColor: string;
+  setStrokeColor: (color: string) => void;
+  strokeWidth: number;
+  setStrokeWidth: (width: number) => void;
+
   // Selection (for creating connections and general selection)
   selectedNoteId: string | null;
   setSelectedNoteId: (id: string | null) => void;
@@ -30,8 +36,10 @@ interface Store {
   setSelectedItemId: (id: string | null) => void;
 
   // Tool selection
-  selectedTool: "select" | "note" | "text" | "arrow" | "pen";
-  setSelectedTool: (tool: "select" | "note" | "text" | "arrow" | "pen") => void;
+  selectedTool: "select" | "note" | "text" | "arrow" | "pen" | "eraser";
+  setSelectedTool: (
+    tool: "select" | "note" | "text" | "arrow" | "pen" | "eraser"
+  ) => void;
 
   // Theme
   theme: "light" | "dark";
@@ -84,6 +92,11 @@ export const useStore = create<Store>((set) => ({
     })),
   deleteStroke: (id) =>
     set((s) => ({ strokes: s.strokes.filter((stroke) => stroke.id !== id) })),
+
+  strokeColor: "#3b82f6",
+  setStrokeColor: (color) => set({ strokeColor: color }),
+  strokeWidth: 2,
+  setStrokeWidth: (width) => set({ strokeWidth: width }),
 
   selectedNoteId: null,
   setSelectedNoteId: (id) => set({ selectedNoteId: id }),

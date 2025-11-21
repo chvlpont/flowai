@@ -64,6 +64,8 @@ export function Canvas({ boardId }: { boardId: string }) {
     x: number;
     y: number;
   } | null>(null);
+  const strokeColor = useStore((s) => s.strokeColor);
+  const strokeWidth = useStore((s) => s.strokeWidth);
   const [user, setUser] = useState<any>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
@@ -467,8 +469,8 @@ export function Canvas({ boardId }: { boardId: string }) {
       .insert({
         board_id: boardId,
         created_by: "user", // TODO: Replace with actual user ID
-        color: "#3b82f6",
-        stroke_width: 2,
+        color: strokeColor,
+        stroke_width: strokeWidth,
         points: currentStroke,
       })
       .select()
@@ -956,8 +958,8 @@ export function Canvas({ boardId }: { boardId: string }) {
             {isDrawing && currentStroke.length > 0 && (
               <path
                 d={pointsToPath(currentStroke)}
-                stroke="#3b82f6"
-                strokeWidth={2}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
                 fill="none"
                 strokeLinecap="round"
                 strokeLinejoin="round"
