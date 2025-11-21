@@ -60,7 +60,10 @@ export function Canvas({ boardId }: { boardId: string }) {
   >([]);
   const [isDraggingStroke, setIsDraggingStroke] = useState(false);
   const [draggedStrokeId, setDraggedStrokeId] = useState<string | null>(null);
-  const [strokeDragStart, setStrokeDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [strokeDragStart, setStrokeDragStart] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
@@ -482,7 +485,7 @@ export function Canvas({ boardId }: { boardId: string }) {
   // Handle stroke dragging
   const handleStrokeMouseDown = (e: React.MouseEvent, stroke: any) => {
     if (selectedTool !== "select") return;
-    
+
     e.stopPropagation();
     setIsDraggingStroke(true);
     setDraggedStrokeId(stroke.id);
@@ -498,18 +501,20 @@ export function Canvas({ boardId }: { boardId: string }) {
     const handleMouseMove = (moveEvent: MouseEvent) => {
       if (!strokeDragStart || !rect) return;
 
-      const currentX = (moveEvent.clientX - rect.left - viewport.x) / viewport.zoom;
-      const currentY = (moveEvent.clientY - rect.top - viewport.y) / viewport.zoom;
-      
+      const currentX =
+        (moveEvent.clientX - rect.left - viewport.x) / viewport.zoom;
+      const currentY =
+        (moveEvent.clientY - rect.top - viewport.y) / viewport.zoom;
+
       const deltaX = currentX - strokeDragStart.x;
       const deltaY = currentY - strokeDragStart.y;
 
       // Update stroke points in real-time
-      const originalStroke = strokes.find(s => s.id === stroke.id);
+      const originalStroke = strokes.find((s) => s.id === stroke.id);
       if (originalStroke) {
-        const updatedPoints = originalStroke.points.map(point => ({
+        const updatedPoints = originalStroke.points.map((point) => ({
           x: point.x + deltaX,
-          y: point.y + deltaY
+          y: point.y + deltaY,
         }));
         updateStroke(stroke.id, { points: updatedPoints });
       }
@@ -519,7 +524,7 @@ export function Canvas({ boardId }: { boardId: string }) {
       if (!strokeDragStart || !draggedStrokeId) return;
 
       // Update in database
-      const updatedStroke = strokes.find(s => s.id === draggedStrokeId);
+      const updatedStroke = strokes.find((s) => s.id === draggedStrokeId);
       if (updatedStroke) {
         await supabase
           .from("board_strokes")
@@ -897,7 +902,14 @@ export function Canvas({ boardId }: { boardId: string }) {
                     fill="none"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ cursor: selectedTool === "select" ? (isDraggingStroke && draggedStrokeId === stroke.id ? "grabbing" : "grab") : "pointer" }}
+                    style={{
+                      cursor:
+                        selectedTool === "select"
+                          ? isDraggingStroke && draggedStrokeId === stroke.id
+                            ? "grabbing"
+                            : "grab"
+                          : "pointer",
+                    }}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedItemId(stroke.id);
