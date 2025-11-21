@@ -408,8 +408,17 @@ export function Canvas({ boardId }: { boardId: string }) {
       // Check if it's a stroke
       const stroke = strokes.find((s) => s.id === id);
       if (stroke) {
-        await supabase.from("board_strokes").delete().eq("id", id);
-        deleteStroke(id);
+        console.log("Deleting single stroke:", id, stroke);
+        const result = await supabase
+          .from("board_strokes")
+          .delete()
+          .eq("id", id);
+        console.log("Single stroke delete result:", result);
+        if (result.error) {
+          console.error("Single stroke delete error:", result.error);
+        } else {
+          deleteStroke(id);
+        }
         useStore.getState().setSelectedItemId(null);
         return;
       }
@@ -425,6 +434,7 @@ export function Canvas({ boardId }: { boardId: string }) {
   // Delete multiple items function
   const deleteMultipleItems = useCallback(
     async (ids: string[]) => {
+      console.log("Deleting multiple items:", ids);
       const noteIds: string[] = [];
       const connectionIds: string[] = [];
       const strokeIds: string[] = [];
@@ -440,29 +450,35 @@ export function Canvas({ boardId }: { boardId: string }) {
         }
       });
 
-      // Delete in batches by type
-      const deletePromises = [];
+      console.log("Categorized:", { noteIds, connectionIds, strokeIds });
 
+      // Delete in batches by type (sequentially to avoid Promise issues)
       if (noteIds.length > 0) {
-        deletePromises.push(
-          supabase.from("board_objects").delete().in("id", noteIds)
-        );
+        console.log("Deleting notes:", noteIds);
+        const result = await supabase
+          .from("board_objects")
+          .delete()
+          .in("id", noteIds);
+        console.log("Notes delete result:", result);
       }
 
       if (connectionIds.length > 0) {
-        deletePromises.push(
-          supabase.from("board_connections").delete().in("id", connectionIds)
-        );
+        console.log("Deleting connections:", connectionIds);
+        const result = await supabase
+          .from("board_connections")
+          .delete()
+          .in("id", connectionIds);
+        console.log("Connections delete result:", result);
       }
 
       if (strokeIds.length > 0) {
-        deletePromises.push(
-          supabase.from("board_strokes").delete().in("id", strokeIds)
-        );
+        console.log("Deleting strokes:", strokeIds);
+        const result = await supabase
+          .from("board_strokes")
+          .delete()
+          .in("id", strokeIds);
+        console.log("Strokes delete result:", result);
       }
-
-      // Wait for all deletions to complete
-      await Promise.all(deletePromises);
 
       // Update local state
       noteIds.forEach(deleteNote);
