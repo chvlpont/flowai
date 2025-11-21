@@ -1,3 +1,11 @@
+export interface Profile {
+  id: string;
+  display_name?: string;
+  created_at: string;
+  username: string;
+  email: string;
+}
+
 export interface Note {
   id: string;
   board_id: string;

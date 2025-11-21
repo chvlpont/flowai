@@ -1,8 +1,8 @@
 "use client";
 
+import { supabase } from "@/lib/supabase/client";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useStore } from "@/store";
-import { supabase } from "@/lib/supabase";
 import { Note } from "./Note";
 import { ConnectionLine } from "./Connection";
 import { Toolbar } from "./Toolbar";
@@ -389,7 +389,6 @@ export function Canvas({ boardId }: { boardId: string }) {
       setCurrentStroke([]);
       return;
     }
-
     // Save stroke to database
     const { data } = await supabase
       .from("board_strokes")
