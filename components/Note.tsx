@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { useStore } from "@/store";
@@ -20,6 +20,46 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
   const setSelectedItemId = useStore((s) => s.setSelectedItemId);
   const addConnection = useStore((s) => s.addConnection);
   const viewport = useStore((s) => s.viewport);
+
+  // Local state for text editing
+  const [localContent, setLocalContent] = useState(note.content);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Debounced save ref
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Update local content when note content changes (for real-time updates)
+  useEffect(() => {
+    if (!isEditing) {
+      setLocalContent(note.content);
+    }
+  }, [note.content, isEditing]);
+
+  // Debounced save function
+  const debouncedSave = useCallback(async (content: string) => {
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout to save after 100ms of no typing (much faster!)
+    saveTimeoutRef.current = setTimeout(async () => {
+      updateNote(note.id, { content });
+      await supabase
+        .from("board_objects")
+        .update({ content })
+        .eq("id", note.id);
+    }, 100);
+  }, [note.id, updateNote]);
 
   // Local state for smooth resizing
   const [resizeOffset, setResizeOffset] = useState({ width: 0, height: 0 });
@@ -110,6 +150,7 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
     // Focus textarea on double-click
     const textarea = e.currentTarget.querySelector("textarea");
     if (textarea) {
+      setIsEditing(true);
       textarea.style.pointerEvents = "auto";
       textarea.focus();
     }
@@ -158,20 +199,55 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
     >
       <textarea
         className="w-full h-full bg-transparent border-none outline-none resize-none"
-        defaultValue={note.content}
+        value={localContent}
+        onChange={(e) => {
+          const newContent = e.target.value;
+          setLocalContent(newContent);
+
+          // Save immediately on word boundaries (space, enter, punctuation)
+          const shouldSaveImmediately = /[ \n.,!?;:()[\]{}"']$/.test(newContent.slice(-1));
+
+          if (shouldSaveImmediately) {
+            // Clear any pending debounced save
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current);
+              saveTimeoutRef.current = null;
+            }
+            // Save immediately
+            updateNote(note.id, { content: newContent });
+            supabase
+              .from("board_objects")
+              .update({ content: newContent })
+              .eq("id", note.id);
+          } else {
+            // Use very short debounce for other characters
+            debouncedSave(newContent);
+          }
+        }}
         onFocus={(e) => {
           // When focused, allow text selection
-          e.currentTarget.style.pointerEvents = "auto";
+          setIsEditing(true);
+          if (e.currentTarget) {
+            e.currentTarget.style.pointerEvents = "auto";
+          }
         }}
-        onBlur={(e) => {
-          updateNote(note.id, { content: e.target.value });
-          supabase
+        onBlur={async (e) => {
+          setIsEditing(false);
+          // Clear any pending debounced save
+          if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+          }
+          // Save immediately on blur
+          updateNote(note.id, { content: localContent });
+          await supabase
             .from("board_objects")
-            .update({ content: e.target.value })
-            .eq("id", note.id)
-            .then();
+            .update({ content: localContent })
+            .eq("id", note.id);
           // When not focused, allow dragging through
-          e.currentTarget.style.pointerEvents = "none";
+          if (e.currentTarget) {
+            e.currentTarget.style.pointerEvents = "none";
+          }
         }}
         style={{
           color: "var(--text-primary)",
