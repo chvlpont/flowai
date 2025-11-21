@@ -11,7 +11,7 @@ import { ContextMenu } from "./ContextMenu";
 import { InviteModal } from "./InviteModal";
 import { Board } from "@/types";
 import { ArrowLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   DndContext,
   DragEndEvent,
@@ -22,6 +22,7 @@ import {
 
 export function Canvas({ boardId }: { boardId: string }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { notes, setNotes, addNote, updateNote, deleteNote } = useStore();
   const { connections, setConnections, addConnection, deleteConnection } =
     useStore();
@@ -186,6 +187,65 @@ export function Canvas({ boardId }: { boardId: string }) {
     checkAuthorization();
   }, [boardId]);
 
+  // Clean up presence when boardId changes (navigating to different board/page)
+  useEffect(() => {
+    return () => {
+      // Clean up presence when leaving this specific board
+      if (user) {
+        supabase
+          .from("board_presence")
+          .update({ is_active: false })
+          .eq("user_id", user.id)
+          .eq("board_id", boardId);
+      }
+    };
+  }, [boardId, user]);
+
+  // Clean up presence when navigating away from the page
+  useEffect(() => {
+    const cleanupCursor = () => {
+      if (user) {
+        console.log("🧹 Cleaning up cursor for navigation");
+        supabase
+          .from("board_presence")
+          .update({ is_active: false })
+          .eq("user_id", user.id)
+          .eq("board_id", boardId)
+          .then(({ error }) => {
+            if (error) console.error("❌ Cursor cleanup error:", error);
+            else console.log("✅ Cursor cleaned up successfully");
+          });
+      }
+    };
+
+    // Listen for browser navigation events
+    const handleBeforeUnload = () => {
+      cleanupCursor();
+    };
+
+    // Add event listeners
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      cleanupCursor(); // Final cleanup when component unmounts
+    };
+  }, [user, boardId]);
+
+  // Clean up when pathname changes (navigation)
+  useEffect(() => {
+    return () => {
+      if (user) {
+        console.log("🔄 Pathname changed, cleaning up cursor");
+        supabase
+          .from("board_presence")
+          .update({ is_active: false })
+          .eq("user_id", user.id)
+          .eq("board_id", boardId);
+      }
+    };
+  }, [pathname, user, boardId]);
+
   // Generate consistent color for user based on their ID
   const getUserColor = (userId: string) => {
     const colors = [
@@ -246,6 +306,7 @@ export function Canvas({ boardId }: { boardId: string }) {
         cursor_y: y,
         color: getUserColor(user.id),
         board_id: boardId,
+        is_active: true,
         updated_at: new Date().toISOString(),
       };
 
@@ -303,11 +364,12 @@ export function Canvas({ boardId }: { boardId: string }) {
       .eq("board_id", boardId)
       .then(({ data }) => setStrokes(data || []));
 
-    // Load cursor presence
+    // Load cursor presence (only active cursors)
     supabase
       .from("board_presence")
       .select("*")
       .eq("board_id", boardId)
+      .eq("is_active", true)
       .neq("user_id", user?.id || "")
       .then(({ data }) => setCursors(data || []));
 
@@ -367,7 +429,13 @@ export function Canvas({ boardId }: { boardId: string }) {
         { event: "UPDATE", schema: "public", table: "board_presence" },
         (payload) => {
           if (payload.new.user_id !== user?.id) {
-            updateCursor(payload.new as any);
+            // If cursor becomes inactive, remove it
+            if (!payload.new.is_active) {
+              removeCursor(payload.new.user_id);
+            } else {
+              // If cursor is active, update position
+              updateCursor(payload.new as any);
+            }
           }
         }
       )
@@ -392,6 +460,49 @@ export function Canvas({ boardId }: { boardId: string }) {
       supabase.removeChannel(channel);
     };
   }, [boardId, isAuthorized]);
+
+  // Additional cleanup on page unload/refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (user) {
+        // Use navigator.sendBeacon for reliable cleanup on page unload
+        const data = JSON.stringify({
+          user_id: user.id,
+          board_id: boardId,
+        });
+
+        // Fallback: try regular delete
+        supabase
+          .from("board_presence")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("board_id", boardId);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && user) {
+        // User switched tabs or minimized - optional: could pause cursor updates
+        // For now, keep cursor active even when tab is hidden
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // Also clean up on component unmount
+      if (user) {
+        supabase
+          .from("board_presence")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("board_id", boardId);
+      }
+    };
+  }, [user, boardId]);
 
   // Delete item function
   const deleteItem = useCallback(
