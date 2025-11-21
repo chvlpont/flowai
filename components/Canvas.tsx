@@ -31,6 +31,9 @@ export function Canvas({ boardId }: { boardId: string }) {
   const selectedNoteId = useStore((s) => s.selectedNoteId);
   const selectedItemId = useStore((s) => s.selectedItemId);
   const setSelectedItemId = useStore((s) => s.setSelectedItemId);
+  const selectedItemIds = useStore((s) => s.selectedItemIds);
+  const setSelectedItemIds = useStore((s) => s.setSelectedItemIds);
+  const clearSelection = useStore((s) => s.clearSelection);
   const selectedTool = useStore((s) => s.selectedTool);
   const setSelectedTool = useStore((s) => s.setSelectedTool);
   const viewport = useStore((s) => s.viewport);
@@ -69,6 +72,16 @@ export function Canvas({ boardId }: { boardId: string }) {
   const [user, setUser] = useState<any>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
+  // Marquee selection state
+  const [isMarqueeSelecting, setIsMarqueeSelecting] = useState(false);
+  const [marqueeStart, setMarqueeStart] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [marqueeEnd, setMarqueeEnd] = useState<{ x: number; y: number } | null>(
+    null
+  );
+
   // @dnd-kit sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -87,17 +100,44 @@ export function Canvas({ boardId }: { boardId: string }) {
     if (!note) return;
 
     // Calculate new position accounting for zoom
-    const newX = note.x + delta.x / viewport.zoom;
-    const newY = note.y + delta.y / viewport.zoom;
+    const deltaX = delta.x / viewport.zoom;
+    const deltaY = delta.y / viewport.zoom;
+    const newX = note.x + deltaX;
+    const newY = note.y + deltaY;
 
-    // Update store
-    updateNote(noteId, { x: newX, y: newY });
+    // Check if this note is part of a multi-selection
+    const state = useStore.getState();
+    const isPartOfSelection =
+      state.selectedItemIds.includes(noteId) || state.selectedItemId === noteId;
+    const itemsToMove =
+      isPartOfSelection && state.selectedItemIds.length > 0
+        ? state.selectedItemIds
+        : [noteId];
 
-    // Update database
-    await supabase
-      .from("board_objects")
-      .update({ x: newX, y: newY })
-      .eq("id", noteId);
+    // Move all selected items by the same delta
+    const updatePromises: any[] = [];
+
+    itemsToMove.forEach((id) => {
+      const itemNote = notes.find((n) => n.id === id);
+      if (itemNote) {
+        const itemNewX = itemNote.x + deltaX;
+        const itemNewY = itemNote.y + deltaY;
+
+        // Update store
+        updateNote(id, { x: itemNewX, y: itemNewY });
+
+        // Update database
+        updatePromises.push(
+          supabase
+            .from("board_objects")
+            .update({ x: itemNewX, y: itemNewY })
+            .eq("id", id)
+        );
+      }
+    });
+
+    // Wait for all updates to complete
+    await Promise.all(updatePromises);
   };
 
   // Filter unique notes to avoid duplicate keys
@@ -259,21 +299,108 @@ export function Canvas({ boardId }: { boardId: string }) {
     [connections, strokes, deleteConnection, deleteStroke, deleteNote]
   );
 
+  // Delete multiple items function
+  const deleteMultipleItems = useCallback(
+    async (ids: string[]) => {
+      const noteIds: string[] = [];
+      const connectionIds: string[] = [];
+      const strokeIds: string[] = [];
+
+      // Categorize items by type
+      ids.forEach((id) => {
+        if (connections.find((c) => c.id === id)) {
+          connectionIds.push(id);
+        } else if (strokes.find((s) => s.id === id)) {
+          strokeIds.push(id);
+        } else {
+          noteIds.push(id);
+        }
+      });
+
+      // Delete in batches by type
+      const deletePromises = [];
+
+      if (noteIds.length > 0) {
+        deletePromises.push(
+          supabase.from("board_objects").delete().in("id", noteIds)
+        );
+      }
+
+      if (connectionIds.length > 0) {
+        deletePromises.push(
+          supabase.from("board_connections").delete().in("id", connectionIds)
+        );
+      }
+
+      if (strokeIds.length > 0) {
+        deletePromises.push(
+          supabase.from("board_strokes").delete().in("id", strokeIds)
+        );
+      }
+
+      // Wait for all deletions to complete
+      await Promise.all(deletePromises);
+
+      // Update local state
+      noteIds.forEach(deleteNote);
+      connectionIds.forEach(deleteConnection);
+      strokeIds.forEach(deleteStroke);
+
+      // Clear selection
+      clearSelection();
+    },
+    [
+      connections,
+      strokes,
+      deleteNote,
+      deleteConnection,
+      deleteStroke,
+      clearSelection,
+    ]
+  );
+
   // Delete key handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Delete") {
-        const selectedItemId = useStore.getState().selectedItemId;
-        if (selectedItemId) {
+        const state = useStore.getState();
+
+        // Check if we have multiple items selected
+        if (state.selectedItemIds.length > 0) {
           e.preventDefault();
-          deleteItem(selectedItemId);
+          deleteMultipleItems(state.selectedItemIds);
+        } else if (state.selectedItemId) {
+          e.preventDefault();
+          deleteItem(state.selectedItemId);
         }
+      } else if (e.key === "Escape") {
+        // Clear selection on Escape
+        clearSelection();
+      } else if (e.ctrlKey && e.key === "a") {
+        // Select all items with Ctrl+A
+        e.preventDefault();
+        const allItemIds = [
+          ...notes.map((note) => note.id),
+          ...connections.map((conn) => conn.id),
+          ...strokes.map((stroke) => stroke.id),
+        ];
+        setSelectedItemIds(allItemIds);
+        setSelectedItemId(null);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [deleteItem]);
+  }, [
+    deleteItem,
+    deleteMultipleItems,
+    clearSelection,
+    notes,
+    connections,
+    strokes,
+    setSelectedItemIds,
+    setSelectedItemId,
+  ]);
 
   const createObject = async (x: number, y: number, type: string) => {
     let objectData: any = {
@@ -333,7 +460,9 @@ export function Canvas({ boardId }: { boardId: string }) {
 
     // Deselect when clicking on background in select mode
     if (selectedTool === "select" && isCanvasBackground) {
-      useStore.getState().setSelectedItemId(null);
+      if (!e.shiftKey) {
+        clearSelection();
+      }
       return;
     }
 
@@ -545,8 +674,134 @@ export function Canvas({ boardId }: { boardId: string }) {
     document.addEventListener("mouseup", handleMouseUp);
   };
 
-  // Pan with mouse drag on background
+  // Handle marquee selection start
+  const handleMarqueeStart = (e: React.MouseEvent) => {
+    if (!e.shiftKey || selectedTool !== "select") return false;
+
+    const target = e.target as HTMLElement;
+    const isCanvasBackground =
+      target === canvasRef.current ||
+      target.classList.contains("canvas-content") ||
+      target.tagName === "svg";
+
+    if (!isCanvasBackground) return false;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+
+    const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+    const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+    setIsMarqueeSelecting(true);
+    setMarqueeStart({ x, y });
+    setMarqueeEnd({ x, y });
+
+    return true;
+  };
+
+  // Handle marquee selection move
+  const handleMarqueeMove = (e: React.MouseEvent) => {
+    if (!isMarqueeSelecting || !marqueeStart) return;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+    const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+    setMarqueeEnd({ x, y });
+  };
+
+  // Handle marquee selection end
+  const handleMarqueeEnd = () => {
+    if (!isMarqueeSelecting || !marqueeStart || !marqueeEnd) {
+      setIsMarqueeSelecting(false);
+      setMarqueeStart(null);
+      setMarqueeEnd(null);
+      return;
+    }
+
+    // Calculate selection rectangle
+    const minX = Math.min(marqueeStart.x, marqueeEnd.x);
+    const maxX = Math.max(marqueeStart.x, marqueeEnd.x);
+    const minY = Math.min(marqueeStart.y, marqueeEnd.y);
+    const maxY = Math.max(marqueeStart.y, marqueeEnd.y);
+
+    // Find items within the selection rectangle
+    const selectedIds: string[] = [];
+
+    // Check notes
+    notes.forEach((note) => {
+      const noteLeft = note.x;
+      const noteRight = note.x + note.width;
+      const noteTop = note.y;
+      const noteBottom = note.y + note.height;
+
+      // Check if note intersects with selection rectangle
+      if (
+        noteLeft < maxX &&
+        noteRight > minX &&
+        noteTop < maxY &&
+        noteBottom > minY
+      ) {
+        selectedIds.push(note.id);
+      }
+    });
+
+    // Check connections (check if line intersects rectangle)
+    connections.forEach((conn) => {
+      const fromNote = notes.find((n) => n.id === conn.from_object_id);
+      const toNote = notes.find((n) => n.id === conn.to_object_id);
+
+      if (fromNote && toNote) {
+        const x1 = fromNote.x + fromNote.width / 2;
+        const y1 = fromNote.y + fromNote.height / 2;
+        const x2 = toNote.x + toNote.width / 2;
+        const y2 = toNote.y + toNote.height / 2;
+
+        // Simple check: if either endpoint is in rectangle or line crosses rectangle
+        if (
+          (x1 >= minX && x1 <= maxX && y1 >= minY && y1 <= maxY) ||
+          (x2 >= minX && x2 <= maxX && y2 >= minY && y2 <= maxY)
+        ) {
+          selectedIds.push(conn.id);
+        }
+      }
+    });
+
+    // Check strokes
+    strokes.forEach((stroke) => {
+      // Check if any point of the stroke is within the rectangle
+      const hasPointInRect = stroke.points.some(
+        (point) =>
+          point.x >= minX &&
+          point.x <= maxX &&
+          point.y >= minY &&
+          point.y <= maxY
+      );
+
+      if (hasPointInRect) {
+        selectedIds.push(stroke.id);
+      }
+    });
+
+    // Update selection
+    if (selectedIds.length > 0) {
+      setSelectedItemIds(selectedIds);
+      setSelectedItemId(null);
+    }
+
+    // Clean up
+    setIsMarqueeSelecting(false);
+    setMarqueeStart(null);
+    setMarqueeEnd(null);
+  };
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    // Try to start marquee selection first
+    if (handleMarqueeStart(e)) {
+      return;
+    }
+
     const target = e.target as HTMLElement;
     const isCanvasBackground =
       target === canvasRef.current ||
@@ -610,11 +865,13 @@ export function Canvas({ boardId }: { boardId: string }) {
   const handleMouseMove = (e: React.MouseEvent) => {
     handleTextDragMove(e);
     handlePenDrawMove(e);
+    handleMarqueeMove(e);
   };
 
   const handleMouseUp = () => {
     handleTextDragEnd();
     handlePenDrawEnd();
+    handleMarqueeEnd();
     setIsMouseDown(false);
     setIsPanning(false);
   };
@@ -622,6 +879,7 @@ export function Canvas({ boardId }: { boardId: string }) {
   const handleMouseLeave = () => {
     handleTextDragEnd();
     handlePenDrawEnd();
+    handleMarqueeEnd();
     setIsMouseDown(false);
     setIsPanning(false);
   };
@@ -758,6 +1016,44 @@ export function Canvas({ boardId }: { boardId: string }) {
           )}
         </div>
 
+        {/* Multi-selection indicator */}
+        {(selectedItemIds.length > 0 ||
+          (selectedItemId && selectedItemIds.length === 0)) && (
+          <div
+            className="px-4 py-2 rounded shadow text-sm"
+            style={{
+              background: "var(--accent-primary-bg)",
+              color: "var(--accent-primary)",
+              border: "1px solid var(--accent-primary)",
+            }}
+          >
+            {selectedItemIds.length > 0 ? (
+              <>
+                {selectedItemIds.length} item
+                {selectedItemIds.length > 1 ? "s" : ""} selected
+                <span
+                  className="ml-2"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  • Shift+Click: add/remove • Shift+Drag: select area • Ctrl+A:
+                  select all • Esc: clear • Del: delete
+                </span>
+              </>
+            ) : (
+              <>
+                1 item selected
+                <span
+                  className="ml-2"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  • Shift+Click: multi-select • Shift+Drag: select area • Del:
+                  delete
+                </span>
+              </>
+            )}
+          </div>
+        )}
+
         {selectedNoteId && (
           <span
             className="px-4 py-2 rounded text-sm"
@@ -838,32 +1134,59 @@ export function Canvas({ boardId }: { boardId: string }) {
           }}
         >
           {/* Render connections */}
-          {uniqueConnections.map((conn) => (
-            <ConnectionLine
-              key={conn.id}
-              connection={conn}
-              onContextMenu={(e, id) => {
-                e.preventDefault();
-                setContextMenu({ x: e.clientX, y: e.clientY, itemId: id });
-              }}
-            />
-          ))}
+          {uniqueConnections.map((conn) => {
+            const isSelected =
+              selectedItemId === conn.id || selectedItemIds.includes(conn.id);
+            return (
+              <ConnectionLine
+                key={conn.id}
+                connection={conn}
+                isSelected={isSelected}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearSelection();
+                  setSelectedItemId(conn.id);
+                  setContextMenu(null);
+                }}
+                onContextMenu={(e, id) => {
+                  e.preventDefault();
+                  // If right-clicking on unselected item, select it
+                  if (!selectedItemIds.includes(id) && selectedItemId !== id) {
+                    clearSelection();
+                    setSelectedItemId(id);
+                  }
+                  setContextMenu({ x: e.clientX, y: e.clientY, itemId: id });
+                }}
+              />
+            );
+          })}
 
           {/* Render notes */}
-          {uniqueNotes.map((note) => (
-            <Note
-              key={note.id}
-              note={note}
-              onClick={() => {
-                setSelectedItemId(note.id);
-                setContextMenu(null);
-              }}
-              onContextMenu={(e, id) => {
-                e.preventDefault();
-                setContextMenu({ x: e.clientX, y: e.clientY, itemId: id });
-              }}
-            />
-          ))}
+          {uniqueNotes.map((note) => {
+            const isSelected =
+              selectedItemId === note.id || selectedItemIds.includes(note.id);
+            return (
+              <Note
+                key={note.id}
+                note={note}
+                isSelected={isSelected}
+                onClick={(e) => {
+                  clearSelection();
+                  setSelectedItemId(note.id);
+                  setContextMenu(null);
+                }}
+                onContextMenu={(e, id) => {
+                  e.preventDefault();
+                  // If right-clicking on unselected item, select it
+                  if (!selectedItemIds.includes(id) && selectedItemId !== id) {
+                    clearSelection();
+                    setSelectedItemId(id);
+                  }
+                  setContextMenu({ x: e.clientX, y: e.clientY, itemId: id });
+                }}
+              />
+            );
+          })}
 
           {/* Text drag preview */}
           {isDraggingText && textDragStart && textDragEnd && (
@@ -881,6 +1204,24 @@ export function Canvas({ boardId }: { boardId: string }) {
             />
           )}
 
+          {/* Marquee selection rectangle */}
+          {isMarqueeSelecting && marqueeStart && marqueeEnd && (
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                left: Math.min(marqueeStart.x, marqueeEnd.x),
+                top: Math.min(marqueeStart.y, marqueeEnd.y),
+                width: Math.abs(marqueeEnd.x - marqueeStart.x),
+                height: Math.abs(marqueeEnd.y - marqueeStart.y),
+                border: "2px dashed var(--accent-primary)",
+                background: "var(--accent-primary-bg)",
+                borderRadius: "4px",
+                opacity: 0.3,
+                zIndex: 1000,
+              }}
+            />
+          )}
+
           {/* Render pen strokes */}
           <svg
             className="absolute inset-0"
@@ -893,7 +1234,9 @@ export function Canvas({ boardId }: { boardId: string }) {
           >
             {/* Render saved strokes */}
             {uniqueStrokes.map((stroke) => {
-              const isSelected = selectedItemId === stroke.id;
+              const isSelected =
+                selectedItemId === stroke.id ||
+                selectedItemIds.includes(stroke.id);
               return (
                 <g key={stroke.id}>
                   {/* Invisible wider path for easier clicking */}
@@ -914,6 +1257,7 @@ export function Canvas({ boardId }: { boardId: string }) {
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      clearSelection();
                       setSelectedItemId(stroke.id);
                       setContextMenu(null);
                     }}
@@ -921,6 +1265,14 @@ export function Canvas({ boardId }: { boardId: string }) {
                     onContextMenu={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      // If right-clicking on unselected item, select it
+                      if (
+                        !selectedItemIds.includes(stroke.id) &&
+                        selectedItemId !== stroke.id
+                      ) {
+                        clearSelection();
+                        setSelectedItemId(stroke.id);
+                      }
                       setContextMenu({
                         x: e.clientX,
                         y: e.clientY,
@@ -975,8 +1327,19 @@ export function Canvas({ boardId }: { boardId: string }) {
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
+          selectedItemsCount={selectedItemIds.length + (selectedItemId ? 1 : 0)}
           onClose={() => setContextMenu(null)}
-          onDelete={() => deleteItem(contextMenu.itemId)}
+          onDelete={() => {
+            if (selectedItemIds.length > 0) {
+              // Include the right-clicked item if it's not already in the selection
+              const itemsToDelete = selectedItemIds.includes(contextMenu.itemId)
+                ? selectedItemIds
+                : [...selectedItemIds, contextMenu.itemId];
+              deleteMultipleItems(itemsToDelete);
+            } else {
+              deleteItem(contextMenu.itemId);
+            }
+          }}
         />
       )}
     </div>

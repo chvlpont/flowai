@@ -6,6 +6,7 @@ import { Trash2, Copy, Palette } from "lucide-react";
 interface ContextMenuProps {
   x: number;
   y: number;
+  selectedItemsCount?: number;
   onClose: () => void;
   onDelete: () => void;
   onDuplicate?: () => void;
@@ -15,6 +16,7 @@ interface ContextMenuProps {
 export function ContextMenu({
   x,
   y,
+  selectedItemsCount = 1,
   onClose,
   onDelete,
   onDuplicate,
@@ -47,7 +49,10 @@ export function ContextMenu({
   const menuItems = [
     {
       icon: Trash2,
-      label: "Delete",
+      label:
+        selectedItemsCount > 1
+          ? `Delete ${selectedItemsCount} items`
+          : "Delete",
       shortcut: "Del",
       onClick: () => {
         onDelete();

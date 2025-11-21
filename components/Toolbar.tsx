@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Pencil,
   ChevronDown,
-  Eraser,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -25,7 +24,6 @@ export function Toolbar() {
     { id: "note" as const, icon: StickyNote, label: "Note" },
     { id: "pen" as const, icon: Pencil, label: "Pen", expandable: true },
     { id: "arrow" as const, icon: ArrowRight, label: "Arrow" },
-    { id: "eraser" as const, icon: Eraser, label: "Eraser" },
   ];
 
   const colors = [

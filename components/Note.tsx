@@ -9,10 +9,16 @@ import { supabase } from "@/lib/supabase/client";
 interface NoteProps {
   note: any;
   onContextMenu: (e: React.MouseEvent, id: string) => void;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
+  isSelected?: boolean;
 }
 
-export function Note({ note, onContextMenu, onClick }: NoteProps) {
+export function Note({
+  note,
+  onContextMenu,
+  onClick,
+  isSelected: propIsSelected,
+}: NoteProps) {
   const updateNote = useStore((s) => s.updateNote);
   const selectedNoteId = useStore((s) => s.selectedNoteId);
   const setSelectedNoteId = useStore((s) => s.setSelectedNoteId);
@@ -137,38 +143,43 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
   };
 
   const handleClick = async (e: React.MouseEvent) => {
-    // Always select the item when clicked
-    setSelectedItemId(note.id);
-
     const selectedTool = useStore.getState().selectedTool;
 
-    if (e.shiftKey || selectedTool === "arrow") {
-      // Connection mode: Shift + Click or Arrow tool
-      if (!selectedNoteId) {
-        // First note selected
-        setSelectedNoteId(note.id);
-      } else if (selectedNoteId !== note.id) {
-        // Second note selected - create connection
-        const { data } = await supabase
-          .from("board_connections")
-          .insert({
-            board_id: note.board_id,
-            from_object_id: selectedNoteId,
-            to_object_id: note.id,
-            color: "#6366f1", // Miro-inspired indigo color
-            stroke_width: 2,
-          })
-          .select()
-          .single();
+    // Only handle connection logic when arrow tool is selected OR when shift+click in select mode
+    if (selectedTool === "arrow" || (e.shiftKey && selectedTool === "select")) {
+      // Arrow tool mode: Click to connect notes
+      if (selectedTool === "arrow") {
+        // Always select the item when clicked
+        setSelectedItemId(note.id);
 
-        if (data) addConnection(data);
-        setSelectedNoteId(null);
+        if (!selectedNoteId) {
+          // First note selected
+          setSelectedNoteId(note.id);
+        } else if (selectedNoteId !== note.id) {
+          // Second note selected - create connection
+          const { data } = await supabase
+            .from("board_connections")
+            .insert({
+              board_id: note.board_id,
+              from_object_id: selectedNoteId,
+              to_object_id: note.id,
+              color: "#6366f1", // Miro-inspired indigo color
+              stroke_width: 2,
+            })
+            .select()
+            .single();
 
-        // If using arrow tool, switch back to select after creating connection
-        if (selectedTool === "arrow") {
+          if (data) addConnection(data);
+          setSelectedNoteId(null);
+
+          // Switch back to select after creating connection
           useStore.getState().setSelectedTool("select");
         }
+        return; // Don't continue with normal selection logic
       }
+    } else {
+      // Normal click - just select the item
+      setSelectedItemId(note.id);
     }
   };
 
@@ -183,7 +194,7 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
   };
 
   const isConnectionMode = selectedNoteId === note.id;
-  const isSelected = selectedItemId === note.id;
+  const isSelected = propIsSelected ?? selectedItemId === note.id;
 
   // Calculate transform style
   const style = {
@@ -216,7 +227,7 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
       data-note-id={note.id}
       onClick={(e) => {
         handleClick(e);
-        if (onClick) onClick();
+        if (onClick) onClick(e);
       }}
       onDoubleClick={handleDoubleClick}
       onContextMenu={(e) => onContextMenu(e, note.id)}

@@ -8,9 +8,13 @@ import { supabase } from "@/lib/supabase/client";
 export function ConnectionLine({
   connection,
   onContextMenu,
+  onClick,
+  isSelected: propIsSelected,
 }: {
   connection: Connection;
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
+  onClick?: (e: React.MouseEvent) => void;
+  isSelected?: boolean;
 }) {
   const notes = useStore((s) => s.notes);
   const selectedItemId = useStore((s) => s.selectedItemId);
@@ -27,7 +31,7 @@ export function ConnectionLine({
 
   if (!fromNote || !toNote) return null;
 
-  const isSelected = selectedItemId === connection.id;
+  const isSelected = propIsSelected ?? selectedItemId === connection.id;
 
   // Calculate edge points instead of center points for better visual connection
   const fromCenterX = fromNote.x + fromNote.width / 2;
@@ -104,6 +108,9 @@ export function ConnectionLine({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedItemId(connection.id);
+    if (onClick) {
+      onClick(e);
+    }
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {

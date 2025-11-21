@@ -35,11 +35,14 @@ interface Store {
   selectedItemId: string | null;
   setSelectedItemId: (id: string | null) => void;
 
+  // Multi-selection
+  selectedItemIds: string[];
+  setSelectedItemIds: (ids: string[]) => void;
+  clearSelection: () => void;
+
   // Tool selection
-  selectedTool: "select" | "note" | "text" | "arrow" | "pen" | "eraser";
-  setSelectedTool: (
-    tool: "select" | "note" | "text" | "arrow" | "pen" | "eraser"
-  ) => void;
+  selectedTool: "select" | "note" | "text" | "arrow" | "pen";
+  setSelectedTool: (tool: "select" | "note" | "text" | "arrow" | "pen") => void;
 
   // Theme
   theme: "light" | "dark";
@@ -103,6 +106,10 @@ export const useStore = create<Store>((set) => ({
 
   selectedItemId: null,
   setSelectedItemId: (id) => set({ selectedItemId: id }),
+
+  selectedItemIds: [],
+  setSelectedItemIds: (ids) => set({ selectedItemIds: ids }),
+  clearSelection: () => set({ selectedItemIds: [], selectedItemId: null }),
 
   selectedTool: "select",
   setSelectedTool: (tool) => set({ selectedTool: tool }),
