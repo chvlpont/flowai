@@ -65,7 +65,10 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
   );
 
   // Local state for smooth resizing
-  const [localSize, setLocalSize] = useState({ width: note.width, height: note.height });
+  const [localSize, setLocalSize] = useState({
+    width: note.width,
+    height: note.height,
+  });
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartSize = useRef({ width: 0, height: 0 });
   const currentSize = useRef({ width: 0, height: 0 });
@@ -111,10 +114,16 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
       upEvent.preventDefault();
 
       // Update store and database with the current size from ref
-      updateNote(note.id, { width: currentSize.current.width, height: currentSize.current.height });
+      updateNote(note.id, {
+        width: currentSize.current.width,
+        height: currentSize.current.height,
+      });
       await supabase
         .from("board_objects")
-        .update({ width: currentSize.current.width, height: currentSize.current.height })
+        .update({
+          width: currentSize.current.width,
+          height: currentSize.current.height,
+        })
         .eq("id", note.id);
 
       setIsResizing(false);
@@ -131,8 +140,10 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
     // Always select the item when clicked
     setSelectedItemId(note.id);
 
-    if (e.shiftKey) {
-      // Connection mode: Shift + Click
+    const selectedTool = useStore.getState().selectedTool;
+
+    if (e.shiftKey || selectedTool === "arrow") {
+      // Connection mode: Shift + Click or Arrow tool
       if (!selectedNoteId) {
         // First note selected
         setSelectedNoteId(note.id);
@@ -144,7 +155,7 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
             board_id: note.board_id,
             from_object_id: selectedNoteId,
             to_object_id: note.id,
-            color: "#000000",
+            color: "#6366f1", // Miro-inspired indigo color
             stroke_width: 2,
           })
           .select()
@@ -152,6 +163,11 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
 
         if (data) addConnection(data);
         setSelectedNoteId(null);
+
+        // If using arrow tool, switch back to select after creating connection
+        if (selectedTool === "arrow") {
+          useStore.getState().setSelectedTool("select");
+        }
       }
     }
   };

@@ -224,7 +224,16 @@ export function Canvas({ boardId }: { boardId: string }) {
   // Delete item function
   const deleteItem = useCallback(
     async (id: string) => {
-      // Check if it's a stroke first
+      // Check if it's a connection first
+      const connection = connections.find((c) => c.id === id);
+      if (connection) {
+        await supabase.from("board_connections").delete().eq("id", id);
+        deleteConnection(id);
+        useStore.getState().setSelectedItemId(null);
+        return;
+      }
+
+      // Check if it's a stroke
       const stroke = strokes.find((s) => s.id === id);
       if (stroke) {
         await supabase.from("board_strokes").delete().eq("id", id);
@@ -238,7 +247,7 @@ export function Canvas({ boardId }: { boardId: string }) {
       deleteNote(id);
       useStore.getState().setSelectedItemId(null);
     },
-    [strokes, deleteStroke, deleteNote]
+    [connections, strokes, deleteConnection, deleteStroke, deleteNote]
   );
 
   // Delete key handler
@@ -285,6 +294,9 @@ export function Canvas({ boardId }: { boardId: string }) {
           color: "transparent",
         };
         break;
+      case "arrow":
+        // Arrow tool doesn't create objects directly, it's for connecting notes
+        return;
       default:
         return;
     }
@@ -552,6 +564,7 @@ export function Canvas({ boardId }: { boardId: string }) {
       return "default";
     }
     if (selectedTool === "pen") return "crosshair";
+    if (selectedTool === "arrow") return "crosshair";
     // Default cursor for creation tools (hand will show on hover)
     return "default";
   };
@@ -663,7 +676,12 @@ export function Canvas({ boardId }: { boardId: string }) {
           }}
         >
           Tool: <span className="font-semibold capitalize">{selectedTool}</span>
-          {selectedTool !== "select" && (
+          {selectedTool === "arrow" && !selectedNoteId && (
+            <span className="ml-2" style={{ color: "var(--text-secondary)" }}>
+              Click first note to connect
+            </span>
+          )}
+          {selectedTool !== "select" && selectedTool !== "arrow" && (
             <span className="ml-2" style={{ color: "var(--text-secondary)" }}>
               Click to place
             </span>
@@ -751,7 +769,14 @@ export function Canvas({ boardId }: { boardId: string }) {
         >
           {/* Render connections */}
           {uniqueConnections.map((conn) => (
-            <ConnectionLine key={conn.id} connection={conn} />
+            <ConnectionLine
+              key={conn.id}
+              connection={conn}
+              onContextMenu={(e, id) => {
+                e.preventDefault();
+                setContextMenu({ x: e.clientX, y: e.clientY, itemId: id });
+              }}
+            />
           ))}
 
           {/* Render notes */}
