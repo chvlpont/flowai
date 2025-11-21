@@ -9,6 +9,7 @@ import { Toolbar } from "./Toolbar";
 import { ThemeToggle } from "./ThemeToggle";
 import { ContextMenu } from "./ContextMenu";
 import { InviteModal } from "./InviteModal";
+import { AICommandBar } from "./AICommandBar";
 import { Board } from "@/types";
 import { ArrowLeft } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
@@ -44,6 +45,7 @@ export function Canvas({ boardId }: { boardId: string }) {
   const viewport = useStore((s) => s.viewport);
   const panViewport = useStore((s) => s.panViewport);
   const zoomViewport = useStore((s) => s.zoomViewport);
+  const setAiCommandOpen = useStore((s) => s.setAiCommandOpen);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [board, setBoard] = useState<Board | null>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -612,6 +614,13 @@ export function Canvas({ boardId }: { boardId: string }) {
   // Delete key handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K or Cmd+K to open AI command bar
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setAiCommandOpen(true);
+        return;
+      }
+
       if (e.key === "Delete") {
         const state = useStore.getState();
 
@@ -767,6 +776,52 @@ export function Canvas({ boardId }: { boardId: string }) {
       "#fbbf24", // Amber-400
     ];
     return colors[Math.floor(Math.random() * colors.length)];
+  };
+
+  // Handle AI-generated notes
+  const handleAICreateNotes = async (
+    aiNotes: { content: string; color: string }[]
+  ) => {
+    // Calculate starting position (center of viewport with some spacing)
+    const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
+    const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
+
+    const spacing = 20;
+    const noteWidth = 200;
+    const noteHeight = 150;
+
+    // Create notes in a grid layout
+    const notesPerRow = Math.ceil(Math.sqrt(aiNotes.length));
+
+    for (let i = 0; i < aiNotes.length; i++) {
+      const row = Math.floor(i / notesPerRow);
+      const col = i % notesPerRow;
+
+      const x =
+        centerX +
+        col * (noteWidth + spacing) -
+        (notesPerRow * (noteWidth + spacing)) / 2;
+      const y = centerY + row * (noteHeight + spacing) - 100;
+
+      const { data } = await supabase
+        .from("board_objects")
+        .insert({
+          board_id: boardId,
+          type: "note",
+          content: aiNotes[i].content,
+          x,
+          y,
+          width: noteWidth,
+          height: noteHeight,
+          color: aiNotes[i].color,
+        })
+        .select()
+        .single();
+
+      if (data) {
+        addNote(data);
+      }
+    }
   };
 
   const createObject = async (x: number, y: number, type: string) => {
@@ -1445,6 +1500,21 @@ export function Canvas({ boardId }: { boardId: string }) {
           </span>
         )}
         <InviteModal boardId={boardId} />
+
+        {/* AI Command Button */}
+        <button
+          onClick={() => setAiCommandOpen(true)}
+          className="px-4 py-2 rounded shadow text-sm font-medium flex items-center gap-2 transition-all"
+          style={{
+            background: "var(--accent-primary)",
+            color: "white",
+            border: "none",
+          }}
+          title="Open AI Assistant (Ctrl+K)"
+        >
+          <span>✨</span>
+          <span>AI Assistant</span>
+        </button>
       </div>
 
       {/* Zoom Controls & Theme Toggle */}
@@ -1607,11 +1677,12 @@ export function Canvas({ boardId }: { boardId: string }) {
             .map((cursor) => (
               <div
                 key={cursor.user_id}
-                className="absolute pointer-events-none z-[1001]"
+                className="absolute pointer-events-none"
                 style={{
                   left: cursor.cursor_x,
                   top: cursor.cursor_y,
                   transform: "translate(-2px, -2px)",
+                  zIndex: 1001,
                 }}
               >
                 {/* Cursor */}
@@ -1762,6 +1833,9 @@ export function Canvas({ boardId }: { boardId: string }) {
           }}
         />
       )}
+
+      {/* AI Command Bar */}
+      <AICommandBar boardId={boardId} onCreateNotes={handleAICreateNotes} />
     </div>
   );
 }

@@ -59,6 +59,12 @@ interface Store {
   setViewport: (viewport: { x: number; y: number; zoom: number }) => void;
   panViewport: (dx: number, dy: number) => void;
   zoomViewport: (delta: number, centerX?: number, centerY?: number) => void;
+
+  // AI Command Bar
+  isAiCommandOpen: boolean;
+  setAiCommandOpen: (open: boolean) => void;
+  aiCommandInput: string;
+  setAiCommandInput: (input: string) => void;
 }
 
 export const useStore = create<Store>((set) => ({
@@ -156,4 +162,9 @@ export const useStore = create<Store>((set) => ({
 
       return { viewport: { x: newX, y: newY, zoom: newZoom } };
     }),
+
+  isAiCommandOpen: false,
+  setAiCommandOpen: (open) => set({ isAiCommandOpen: open }),
+  aiCommandInput: "",
+  setAiCommandInput: (input) => set({ aiCommandInput: input }),
 }));
