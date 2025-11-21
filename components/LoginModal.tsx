@@ -115,7 +115,7 @@ export default function LoginModal({
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-primary to-accent-purple hover:from-primary-hover hover:to-accent-purple text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              className="w-full py-3 bg-primary hover:bg-primary-hover text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
               {loading ? "Logging in..." : "Log In"}
             </button>

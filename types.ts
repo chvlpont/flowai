@@ -6,7 +6,14 @@ export interface Profile {
   email: string;
 }
 
-export interface Note {
+export interface Board {
+  id: string;
+  title: string;
+  owner_id: string;
+  created_at: string;
+}
+
+export interface BoardObject {
   id: string;
   board_id: string;
   content: string;
@@ -17,7 +24,7 @@ export interface Note {
   color: string;
 }
 
-export interface Connection {
+export interface BoardConnection {
   id: string;
   board_id: string;
   from_object_id: string;
@@ -26,14 +33,14 @@ export interface Connection {
   stroke_width: number;
 }
 
-export interface Collaborator {
+export interface BoardCollaborator {
   board_id: string;
   user_id: string;
   role: "viewer" | "editor";
   joined_at: string;
 }
 
-export interface Invite {
+export interface BoardInvite {
   id: string;
   board_id: string;
   invite_code: string;
@@ -42,7 +49,7 @@ export interface Invite {
   current_uses: number;
 }
 
-export interface Cursor {
+export interface BoardPresence {
   user_id: string;
   display_name: string;
   cursor_x: number;
@@ -50,7 +57,7 @@ export interface Cursor {
   color: string;
 }
 
-export interface Stroke {
+export interface BoardStroke {
   id: string;
   board_id: string;
   created_by: string;
@@ -59,3 +66,11 @@ export interface Stroke {
   points: { x: number; y: number }[];
   created_at: string;
 }
+
+// Backward compatibility aliases for existing code
+export type Note = BoardObject;
+export type Connection = BoardConnection;
+export type Collaborator = BoardCollaborator;
+export type Invite = BoardInvite;
+export type Cursor = BoardPresence;
+export type Stroke = BoardStroke;

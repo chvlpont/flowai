@@ -8,6 +8,9 @@ import { ConnectionLine } from "./Connection";
 import { Toolbar } from "./Toolbar";
 import { ThemeToggle } from "./ThemeToggle";
 import { ContextMenu } from "./ContextMenu";
+import { Board } from "@/types";
+import { ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragEndEvent,
@@ -17,6 +20,7 @@ import {
 } from "@dnd-kit/core";
 
 export function Canvas({ boardId }: { boardId: string }) {
+  const router = useRouter();
   const { notes, setNotes, addNote, updateNote, deleteNote } = useStore();
   const { connections, setConnections, addConnection, deleteConnection } =
     useStore();
@@ -31,6 +35,7 @@ export function Canvas({ boardId }: { boardId: string }) {
   const panViewport = useStore((s) => s.panViewport);
   const zoomViewport = useStore((s) => s.zoomViewport);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [board, setBoard] = useState<Board | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [isDraggingText, setIsDraggingText] = useState(false);
@@ -99,6 +104,14 @@ export function Canvas({ boardId }: { boardId: string }) {
   );
 
   useEffect(() => {
+    // Load board info
+    supabase
+      .from("boards")
+      .select("*")
+      .eq("id", boardId)
+      .single()
+      .then(({ data }) => setBoard(data));
+
     // Load notes
     supabase
       .from("board_objects")
@@ -563,8 +576,33 @@ export function Canvas({ boardId }: { boardId: string }) {
         }}
       />
 
+      {/* Breadcrumb Navigation */}
+      <div className="absolute top-4 left-20 z-50">
+        <div
+          className="px-4 py-2 rounded shadow text-sm flex items-center gap-2"
+          style={{
+            background: "var(--bg-surface)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <button
+            onClick={() => router.push("/boards")}
+            className="flex items-center gap-1.5 hover:text-primary transition-colors"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Dashboard</span>
+          </button>
+          <span style={{ color: "var(--text-secondary)" }}>/</span>
+          <span className="font-semibold">
+            {board?.title || "Loading..."}
+          </span>
+        </div>
+      </div>
+
       {/* Top Info Bar */}
-      <div className="absolute top-4 left-20 z-50 flex gap-2">
+      <div className="absolute top-16 left-20 z-50 flex gap-2">
         <div
           className="px-4 py-2 rounded shadow text-sm"
           style={{
