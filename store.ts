@@ -20,6 +20,7 @@ interface Store {
   strokes: Stroke[];
   setStrokes: (strokes: Stroke[]) => void;
   addStroke: (stroke: Stroke) => void;
+  updateStroke: (id: string, updates: Partial<Stroke>) => void;
   deleteStroke: (id: string) => void;
 
   // Selection (for creating connections and general selection)
@@ -75,6 +76,12 @@ export const useStore = create<Store>((set) => ({
   strokes: [],
   setStrokes: (strokes) => set({ strokes }),
   addStroke: (stroke) => set((s) => ({ strokes: [...s.strokes, stroke] })),
+  updateStroke: (id: string, updates: Partial<Stroke>) =>
+    set((s) => ({
+      strokes: s.strokes.map((stroke) =>
+        stroke.id === id ? { ...stroke, ...updates } : stroke
+      ),
+    })),
   deleteStroke: (id) =>
     set((s) => ({ strokes: s.strokes.filter((stroke) => stroke.id !== id) })),
 

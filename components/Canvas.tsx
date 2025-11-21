@@ -26,6 +26,7 @@ export function Canvas({ boardId }: { boardId: string }) {
   const { connections, setConnections, addConnection, deleteConnection } =
     useStore();
   const { strokes, setStrokes, addStroke } = useStore();
+  const updateStroke = useStore((s) => s.updateStroke);
   const deleteStroke = useStore((s) => s.deleteStroke);
   const selectedNoteId = useStore((s) => s.selectedNoteId);
   const selectedItemId = useStore((s) => s.selectedItemId);
@@ -57,6 +58,9 @@ export function Canvas({ boardId }: { boardId: string }) {
   const [currentStroke, setCurrentStroke] = useState<
     { x: number; y: number }[]
   >([]);
+  const [isDraggingStroke, setIsDraggingStroke] = useState(false);
+  const [draggedStrokeId, setDraggedStrokeId] = useState<string | null>(null);
+  const [strokeDragStart, setStrokeDragStart] = useState<{ x: number; y: number } | null>(null);
   const [user, setUser] = useState<any>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
@@ -475,6 +479,65 @@ export function Canvas({ boardId }: { boardId: string }) {
     setCurrentStroke([]);
   };
 
+  // Handle stroke dragging
+  const handleStrokeMouseDown = (e: React.MouseEvent, stroke: any) => {
+    if (selectedTool !== "select") return;
+    
+    e.stopPropagation();
+    setIsDraggingStroke(true);
+    setDraggedStrokeId(stroke.id);
+    setSelectedItemId(stroke.id);
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const startX = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+    const startY = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+    setStrokeDragStart({ x: startX, y: startY });
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!strokeDragStart || !rect) return;
+
+      const currentX = (moveEvent.clientX - rect.left - viewport.x) / viewport.zoom;
+      const currentY = (moveEvent.clientY - rect.top - viewport.y) / viewport.zoom;
+      
+      const deltaX = currentX - strokeDragStart.x;
+      const deltaY = currentY - strokeDragStart.y;
+
+      // Update stroke points in real-time
+      const originalStroke = strokes.find(s => s.id === stroke.id);
+      if (originalStroke) {
+        const updatedPoints = originalStroke.points.map(point => ({
+          x: point.x + deltaX,
+          y: point.y + deltaY
+        }));
+        updateStroke(stroke.id, { points: updatedPoints });
+      }
+    };
+
+    const handleMouseUp = async () => {
+      if (!strokeDragStart || !draggedStrokeId) return;
+
+      // Update in database
+      const updatedStroke = strokes.find(s => s.id === draggedStrokeId);
+      if (updatedStroke) {
+        await supabase
+          .from("board_strokes")
+          .update({ points: updatedStroke.points })
+          .eq("id", draggedStrokeId);
+      }
+
+      setIsDraggingStroke(false);
+      setDraggedStrokeId(null);
+      setStrokeDragStart(null);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
   // Pan with mouse drag on background
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -834,12 +897,13 @@ export function Canvas({ boardId }: { boardId: string }) {
                     fill="none"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    style={{ cursor: "pointer" }}
+                    style={{ cursor: selectedTool === "select" ? (isDraggingStroke && draggedStrokeId === stroke.id ? "grabbing" : "grab") : "pointer" }}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedItemId(stroke.id);
                       setContextMenu(null);
                     }}
+                    onMouseDown={(e) => handleStrokeMouseDown(e, stroke)}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
