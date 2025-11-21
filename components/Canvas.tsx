@@ -497,24 +497,6 @@ export function Canvas({ boardId }: { boardId: string }) {
     document.addEventListener("mouseup", handleMouseUp);
   };
 
-  // Zoom on wheel
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      const centerX = e.clientX - rect.left;
-      const centerY = e.clientY - rect.top;
-      const delta = -e.deltaY * 0.001;
-      zoomViewport(delta, centerX, centerY);
-    };
-
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
-    return () => canvas.removeEventListener("wheel", handleWheel);
-  }, [zoomViewport]);
-
   // Mouse handlers for cursor feedback and text dragging
   const handleMouseDown = (e: React.MouseEvent) => {
     // Handle text tool drag start
@@ -613,6 +595,19 @@ export function Canvas({ boardId }: { boardId: string }) {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
+      // Scroll Wheel handling
+      onWheel={(e) => {
+        e.preventDefault();
+
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        const centerX = e.clientX - rect.left;
+        const centerY = e.clientY - rect.top;
+        const delta = -e.deltaY * 0.001;
+
+        zoomViewport(delta, centerX, centerY);
+      }}
       style={{
         touchAction: "none",
         cursor: getCursor(),
