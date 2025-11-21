@@ -65,9 +65,17 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
   );
 
   // Local state for smooth resizing
-  const [resizeOffset, setResizeOffset] = useState({ width: 0, height: 0 });
+  const [localSize, setLocalSize] = useState({ width: note.width, height: note.height });
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartSize = useRef({ width: 0, height: 0 });
+  const currentSize = useRef({ width: 0, height: 0 });
+
+  // Sync local size with note size when not resizing
+  useEffect(() => {
+    if (!isResizing) {
+      setLocalSize({ width: note.width, height: note.height });
+    }
+  }, [note.width, note.height, isResizing]);
 
   // @dnd-kit draggable
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -82,6 +90,7 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
     e.stopPropagation();
     setIsResizing(true);
     resizeStartSize.current = { width: note.width, height: note.height };
+    currentSize.current = { width: note.width, height: note.height };
 
     const startX = e.clientX;
     const startY = e.clientY;
@@ -94,25 +103,20 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
       const newWidth = Math.max(100, resizeStartSize.current.width + dx);
       const newHeight = Math.max(50, resizeStartSize.current.height + dy);
 
-      setResizeOffset({
-        width: newWidth - note.width,
-        height: newHeight - note.height,
-      });
+      currentSize.current = { width: newWidth, height: newHeight };
+      setLocalSize({ width: newWidth, height: newHeight });
     };
 
     const handleMouseUp = async (upEvent: MouseEvent) => {
       upEvent.preventDefault();
-      const newWidth = Math.max(100, note.width + resizeOffset.width);
-      const newHeight = Math.max(50, note.height + resizeOffset.height);
 
-      // Update store and database
-      updateNote(note.id, { width: newWidth, height: newHeight });
+      // Update store and database with the current size from ref
+      updateNote(note.id, { width: currentSize.current.width, height: currentSize.current.height });
       await supabase
         .from("board_objects")
-        .update({ width: newWidth, height: newHeight })
+        .update({ width: currentSize.current.width, height: currentSize.current.height })
         .eq("id", note.id);
 
-      setResizeOffset({ width: 0, height: 0 });
       setIsResizing(false);
 
       document.removeEventListener("mousemove", handleMouseMove);
@@ -169,8 +173,8 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
   const style = {
     left: note.x,
     top: note.y,
-    width: isResizing ? note.width + resizeOffset.width : note.width,
-    height: isResizing ? note.height + resizeOffset.height : note.height,
+    width: localSize.width,
+    height: localSize.height,
     backgroundColor: note.color,
     touchAction: "none" as const,
     cursor: "default", // Default cursor for the note container
@@ -198,6 +202,10 @@ export function Note({ note, onContextMenu, onClick }: NoteProps) {
       }}
       onDoubleClick={handleDoubleClick}
       onContextMenu={(e) => onContextMenu(e, note.id)}
+      onWheel={(e) => {
+        // Allow wheel events to propagate for zooming
+        // Don't stop propagation so Canvas can handle zoom
+      }}
       className="absolute p-4 rounded shadow-lg"
       style={style}
     >
