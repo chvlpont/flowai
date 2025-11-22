@@ -6,6 +6,27 @@ import { CSS } from "@dnd-kit/utilities";
 import { useStore } from "@/store";
 import { supabase } from "@/lib/supabase/client";
 
+// Utility function to calculate if a color is light or dark
+const getTextColor = (backgroundColor: string) => {
+  // Handle transparent background
+  if (backgroundColor === "transparent" || !backgroundColor) {
+    return "var(--text-primary)"; // Use theme default for transparent
+  }
+
+  // Convert hex to RGB
+  const hex = backgroundColor.replace("#", "");
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+
+  // Calculate relative luminance using sRGB coefficients
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  // Return dark text for light backgrounds, light text for dark backgrounds
+  // Threshold of 0.6 works well for sticky note colors
+  return luminance > 0.6 ? "#1a1a1a" : "#ffffff";
+};
+
 interface NoteProps {
   note: any;
   onContextMenu: (e: React.MouseEvent, id: string) => void;
@@ -378,7 +399,7 @@ export function Note({
                 .eq("id", note.id);
             }}
             style={{
-              color: "var(--text-primary)",
+              color: getTextColor(note.color),
               cursor: "text", // Show text cursor for textarea
               pointerEvents: "auto", // Always allow text interaction
             }}
