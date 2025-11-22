@@ -150,7 +150,7 @@ export default function BoardsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border bg-surface/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -169,7 +169,7 @@ export default function BoardsPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      <main className="flex-1 max-w-7xl mx-auto px-6 py-8 space-y-8 w-full">
         {/* Greeting */}
         <div className="space-y-2">
           <h2 className="text-3xl font-bold text-text-primary">
@@ -237,7 +237,7 @@ export default function BoardsPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border mt-16">
+      <footer className="border-t border-border mt-auto">
         <div className="max-w-7xl mx-auto px-6 py-6 text-center">
           <p className="text-sm text-text-secondary">© 2025 FlowAI</p>
         </div>
