@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Board, Profile } from "@/types";
 import BoardCard from "@/components/BoardCard";
+import { JoinBoardModal } from "@/components/JoinBoardModal";
+import { CreateBoardModal } from "@/components/CreateBoardModal";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Plus, UserPlus, LogOut, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { User } from "@supabase/supabase-js";
@@ -17,6 +20,8 @@ export default function BoardsPage() {
   const [sharedBoards, setSharedBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -105,37 +110,11 @@ export default function BoardsPage() {
   };
 
   const handleCreateBoard = async () => {
-    const boardName = prompt("Enter a name for your new board:");
-    if (!boardName || !boardName.trim()) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("boards")
-        .insert({
-          title: boardName.trim(),
-          owner_id: user?.id,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        toast.error("Failed to create board");
-        console.error(error);
-      } else {
-        toast.success("Board created successfully!");
-        router.push(`/board/${data.id}`);
-      }
-    } catch (error) {
-      console.error("Create board error:", error);
-      toast.error("Failed to create board");
-    }
+    setIsCreateModalOpen(true);
   };
 
   const handleJoinBoard = () => {
-    const inviteCode = prompt("Enter the invite code:");
-    if (!inviteCode || !inviteCode.trim()) return;
-
-    router.push(`/invite/${inviteCode.trim()}`);
+    setIsJoinModalOpen(true);
   };
 
   if (loading) {
@@ -160,14 +139,17 @@ export default function BoardsPage() {
           >
             Flowai
           </button>
-          <button
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-accent-red hover:bg-accent-red/10 rounded-lg transition-all disabled:opacity-50"
-          >
-            <LogOut className="w-4 h-4" />
-            {loggingOut ? "Logging out..." : "Log Out"}
-          </button>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-accent-red hover:bg-accent-red/10 rounded-lg transition-all disabled:opacity-50"
+            >
+              <LogOut className="w-4 h-4" />
+              {loggingOut ? "Logging out..." : "Log Out"}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -245,6 +227,17 @@ export default function BoardsPage() {
           <p className="text-sm text-text-secondary">© 2025 FlowAI</p>
         </div>
       </footer>
+
+      {/* Join Board Modal */}
+      <JoinBoardModal
+        isOpen={isJoinModalOpen}
+        onClose={() => setIsJoinModalOpen(false)}
+      />
+      <CreateBoardModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        userId={user?.id || ""}
+      />
     </div>
   );
 }
