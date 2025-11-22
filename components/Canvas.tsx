@@ -1132,6 +1132,9 @@ export function Canvas({ boardId }: { boardId: string }) {
   const handleTextDragStart = (e: React.MouseEvent) => {
     if (selectedTool !== "text") return;
 
+    // Don't start dragging with middle mouse button (used for panning)
+    if (e.button === 1) return;
+
     const target = e.target as HTMLElement;
     const isCanvasBackground =
       target === canvasRef.current ||
@@ -1205,6 +1208,9 @@ export function Canvas({ boardId }: { boardId: string }) {
   // Handle pen drawing start
   const handlePenDrawStart = (e: React.MouseEvent) => {
     if (selectedTool !== "pen") return;
+
+    // Don't start drawing with middle mouse button (used for panning)
+    if (e.button === 1) return;
 
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
