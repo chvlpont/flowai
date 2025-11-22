@@ -89,6 +89,32 @@ export function Canvas({ boardId }: { boardId: string }) {
     null
   );
 
+  // Multi-selection resize state
+  const [isResizingGroup, setIsResizingGroup] = useState(false);
+  const [groupResizeStart, setGroupResizeStart] = useState<{
+    x: number;
+    y: number;
+    bounds: {
+      minX: number;
+      minY: number;
+      maxX: number;
+      maxY: number;
+      width: number;
+      height: number;
+    };
+    originalNotes: Map<
+      string,
+      { x: number; y: number; width: number; height: number }
+    >;
+  } | null>(null);
+
+  // Track live dragging for multi-selection visual feedback
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [dragDelta, setDragDelta] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+
   // @dnd-kit sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -145,6 +171,123 @@ export function Canvas({ boardId }: { boardId: string }) {
 
     // Wait for all updates to complete
     await Promise.all(updatePromises);
+  };
+
+  // Calculate bounding box for selected notes
+  const getSelectionBounds = () => {
+    const selectedNotesList = notes.filter((note) =>
+      selectedItemIds.includes(note.id)
+    );
+
+    if (selectedNotesList.length === 0) return null;
+
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+
+    selectedNotesList.forEach((note) => {
+      minX = Math.min(minX, note.x);
+      minY = Math.min(minY, note.y);
+      maxX = Math.max(maxX, note.x + note.width);
+      maxY = Math.max(maxY, note.y + note.height);
+    });
+
+    return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+  };
+
+  // Handle group resize start
+  const handleGroupResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const bounds = getSelectionBounds();
+    if (!bounds) return;
+
+    setIsResizingGroup(true);
+
+    // Store original positions and sizes
+    const originalNotes = new Map();
+    notes.forEach((note) => {
+      if (selectedItemIds.includes(note.id)) {
+        originalNotes.set(note.id, {
+          x: note.x,
+          y: note.y,
+          width: note.width,
+          height: note.height,
+        });
+      }
+    });
+
+    const resizeData = {
+      x: e.clientX,
+      y: e.clientY,
+      bounds,
+      originalNotes,
+    };
+
+    setGroupResizeStart(resizeData);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = (moveEvent.clientX - resizeData.x) / viewport.zoom;
+      const dy = (moveEvent.clientY - resizeData.y) / viewport.zoom;
+
+      const newWidth = Math.max(100, resizeData.bounds.width + dx);
+      const newHeight = Math.max(50, resizeData.bounds.height + dy);
+
+      const scaleX = newWidth / resizeData.bounds.width;
+      const scaleY = newHeight / resizeData.bounds.height;
+
+      // Update all selected notes proportionally
+      resizeData.originalNotes.forEach((original, noteId) => {
+        const relativeX = original.x - resizeData.bounds.minX;
+        const relativeY = original.y - resizeData.bounds.minY;
+
+        const newX = resizeData.bounds.minX + relativeX * scaleX;
+        const newY = resizeData.bounds.minY + relativeY * scaleY;
+        const newNoteWidth = original.width * scaleX;
+        const newNoteHeight = original.height * scaleY;
+
+        updateNote(noteId, {
+          x: newX,
+          y: newY,
+          width: newNoteWidth,
+          height: newNoteHeight,
+        });
+      });
+    };
+
+    const handleMouseUp = async () => {
+      // Update database with final positions
+      const updatePromises: any[] = [];
+      resizeData.originalNotes.forEach((_, noteId) => {
+        const note = notes.find((n) => n.id === noteId);
+        if (note) {
+          updatePromises.push(
+            supabase
+              .from("board_objects")
+              .update({
+                x: note.x,
+                y: note.y,
+                width: note.width,
+                height: note.height,
+              })
+              .eq("id", noteId)
+          );
+        }
+      });
+
+      await Promise.all(updatePromises);
+
+      setIsResizingGroup(false);
+      setGroupResizeStart(null);
+
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   };
 
   // Filter unique notes to avoid duplicate keys
@@ -1597,7 +1740,41 @@ export function Canvas({ boardId }: { boardId: string }) {
       </div>
 
       {/* Canvas content with viewport transform */}
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        onDragStart={(event) => {
+          const noteId = event.active.id as string;
+          setActiveDragId(noteId);
+          setDragDelta({ x: 0, y: 0 });
+
+          // Make sure dragged note is in the selection
+          const state = useStore.getState();
+          if (
+            !state.selectedItemIds.includes(noteId) &&
+            state.selectedItemId !== noteId
+          ) {
+            clearSelection();
+            setSelectedItemId(noteId);
+          }
+        }}
+        onDragMove={(event) => {
+          if (event.delta) {
+            setDragDelta({
+              x: event.delta.x / viewport.zoom,
+              y: event.delta.y / viewport.zoom,
+            });
+          }
+        }}
+        onDragEnd={(event) => {
+          handleDragEnd(event);
+          setActiveDragId(null);
+          setDragDelta({ x: 0, y: 0 });
+        }}
+        onDragCancel={() => {
+          setActiveDragId(null);
+          setDragDelta({ x: 0, y: 0 });
+        }}
+      >
         <div
           className="canvas-content"
           style={{
@@ -1639,26 +1816,68 @@ export function Canvas({ boardId }: { boardId: string }) {
           {uniqueNotes.map((note) => {
             const isSelected =
               selectedItemId === note.id || selectedItemIds.includes(note.id);
+
+            // Apply drag offset to all selected notes during multi-selection drag
+            const isDraggingThis = activeDragId === note.id;
+            const isPartOfDrag =
+              activeDragId && isSelected && selectedItemIds.length > 0;
+
+            // Create transform style for non-dragged selected notes
+            const dragTransform =
+              isPartOfDrag && !isDraggingThis
+                ? `translate(${dragDelta.x}px, ${dragDelta.y}px)`
+                : undefined;
+
             return (
-              <Note
+              <div
                 key={note.id}
-                note={note}
-                isSelected={isSelected}
-                onClick={(e) => {
-                  clearSelection();
-                  setSelectedItemId(note.id);
-                  setContextMenu(null);
+                style={{
+                  transform: dragTransform,
+                  transition: dragTransform ? "none" : undefined,
                 }}
-                onContextMenu={(e, id) => {
-                  e.preventDefault();
-                  // If right-clicking on unselected item, select it
-                  if (!selectedItemIds.includes(id) && selectedItemId !== id) {
-                    clearSelection();
-                    setSelectedItemId(id);
-                  }
-                  setContextMenu({ x: e.clientX, y: e.clientY, itemId: id });
-                }}
-              />
+              >
+                <Note
+                  note={note}
+                  isSelected={isSelected}
+                  onClick={(e) => {
+                    // Shift+click for multi-selection
+                    if (e.shiftKey) {
+                      if (selectedItemIds.includes(note.id)) {
+                        // Remove from selection
+                        setSelectedItemIds(
+                          selectedItemIds.filter((id) => id !== note.id)
+                        );
+                      } else {
+                        // Add to selection
+                        const newSelection =
+                          selectedItemId &&
+                          !selectedItemIds.includes(selectedItemId)
+                            ? [...selectedItemIds, selectedItemId, note.id]
+                            : [...selectedItemIds, note.id];
+                        setSelectedItemIds(newSelection);
+                        setSelectedItemId(null);
+                      }
+                    } else {
+                      // Normal click - single select
+                      clearSelection();
+                      setSelectedItemId(note.id);
+                    }
+                    setContextMenu(null);
+                  }}
+                  onContextMenu={(e, id) => {
+                    e.preventDefault();
+                    // If right-clicking on unselected item, select it
+                    if (
+                      !selectedItemIds.includes(id) &&
+                      selectedItemId !== id
+                    ) {
+                      clearSelection();
+                      setSelectedItemId(id);
+                    }
+                    setContextMenu({ x: e.clientX, y: e.clientY, itemId: id });
+                  }}
+                />
+              </div>
             );
           })}
 
@@ -1695,6 +1914,52 @@ export function Canvas({ boardId }: { boardId: string }) {
               }}
             />
           )}
+
+          {/* Group resize handle for multi-selection */}
+          {selectedItemIds.length > 1 &&
+            !isResizingGroup &&
+            !activeDragId &&
+            (() => {
+              const bounds = getSelectionBounds();
+              if (!bounds) return null;
+
+              return (
+                <>
+                  {/* Bounding box */}
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: bounds.minX,
+                      top: bounds.minY,
+                      width: bounds.width,
+                      height: bounds.height,
+                      border: "2px dashed var(--accent-primary)",
+                      borderRadius: "4px",
+                      zIndex: 25,
+                    }}
+                  />
+                  {/* Resize handle */}
+                  <div
+                    onMouseDown={handleGroupResizeStart}
+                    className="absolute"
+                    style={{
+                      left: bounds.maxX - 8,
+                      top: bounds.maxY - 8,
+                      width: 16,
+                      height: 16,
+                      background: "var(--accent-primary)",
+                      border: "2px solid white",
+                      borderRadius: "50%",
+                      cursor: "nwse-resize",
+                      touchAction: "none",
+                      zIndex: 1001,
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                      pointerEvents: "auto",
+                    }}
+                  />
+                </>
+              );
+            })()}
 
           {/* Render other users' cursors */}
           {cursors
