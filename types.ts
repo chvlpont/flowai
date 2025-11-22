@@ -55,6 +55,9 @@ export interface BoardPresence {
   cursor_x: number;
   cursor_y: number;
   color: string;
+  board_id: string;
+  is_active: boolean;
+  updated_at: string;
 }
 
 export interface BoardStroke {

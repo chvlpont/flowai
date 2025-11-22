@@ -463,6 +463,31 @@ export function Canvas({ boardId }: { boardId: string }) {
     };
   }, [boardId, isAuthorized]);
 
+  // Auto-remove stale cursors (cursors that haven't updated in 10 seconds)
+  useEffect(() => {
+    if (!isAuthorized) return;
+
+    const checkStaleCursors = () => {
+      const now = Date.now();
+      const staleThreshold = 10000; // 10 seconds
+
+      const currentCursors = useStore.getState().cursors;
+      const activeCursors = currentCursors.filter((cursor) => {
+        const lastUpdate = new Date(cursor.updated_at).getTime();
+        return now - lastUpdate < staleThreshold;
+      });
+
+      if (activeCursors.length !== currentCursors.length) {
+        setCursors(activeCursors);
+      }
+    };
+
+    // Check every 5 seconds
+    const interval = setInterval(checkStaleCursors, 5000);
+
+    return () => clearInterval(interval);
+  }, [isAuthorized, setCursors]);
+
   // Additional cleanup on page unload/refresh
   useEffect(() => {
     const handleBeforeUnload = () => {
