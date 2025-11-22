@@ -66,7 +66,7 @@ const HomePageContent = () => {
                   </button>
                   <button
                     onClick={() => setIsSignupOpen(true)}
-                    className="px-5 py-2.5 bg-linear-to-r from-primary to-accent-purple hover:from-primary-hover hover:to-accent-purple text-white font-medium rounded-md transition-all duration-300 shadow-lg"
+                    className="px-5 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-md transition-all duration-300 shadow-lg"
                   >
                     Get started
                   </button>
