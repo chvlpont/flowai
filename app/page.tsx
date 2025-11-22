@@ -221,9 +221,9 @@ const HomePageContent = () => {
           </div>
 
           {/* How it works - Step by step */}
-          <div className="max-w-5xl mx-auto mb-32">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl sm:text-5xl font-bold text-text-primary mb-4">
+          <div className="max-w-6xl mx-auto mb-32">
+            <div className="text-center mb-20">
+              <h2 className="text-4xl sm:text-6xl font-bold text-text-primary mb-6">
                 From blank canvas to breakthrough
               </h2>
               <p className="text-xl text-text-secondary">
@@ -231,54 +231,57 @@ const HomePageContent = () => {
               </p>
             </div>
 
-            <div className="space-y-16">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
               {/* Step 1 */}
-              <div className="flex flex-col md:flex-row items-center gap-8">
-                <div className="flex-shrink-0 w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
-                  1
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-text-primary mb-3">
+              <div className="relative group">
+                <div className="p-8 transition-all duration-300">
+                  <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center text-xl font-bold mb-6 transition-transform group-hover:scale-110">
+                    1
+                  </div>
+                  <h3 className="text-xl font-bold text-text-primary mb-4">
                     Drop your ideas on the canvas
                   </h3>
-                  <p className="text-lg text-text-secondary">
+                  <p className="text-text-secondary leading-relaxed">
                     Create notes, upload images, paste links. Everything lives
                     on an infinite board. No folders, no hierarchy—just spatial
                     freedom.
                   </p>
+                  <div className="mt-6 w-16 h-1 bg-primary rounded-full opacity-50"></div>
                 </div>
               </div>
 
               {/* Step 2 */}
-              <div className="flex flex-col md:flex-row items-center gap-8">
-                <div className="flex-shrink-0 w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
-                  2
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-text-primary mb-3">
+              <div className="relative group">
+                <div className="p-8 transition-all duration-300">
+                  <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center text-xl font-bold mb-6 transition-transform group-hover:scale-110">
+                    2
+                  </div>
+                  <h3 className="text-xl font-bold text-text-primary mb-4">
                     Invite your team, collaborate live
                   </h3>
-                  <p className="text-lg text-text-secondary">
+                  <p className="text-text-secondary leading-relaxed">
                     Share a link. Everyone sees the same board. Cursors, edits,
                     and updates appear instantly. It's chaos that makes sense.
                   </p>
+                  <div className="mt-6 w-16 h-1 bg-primary rounded-full opacity-50"></div>
                 </div>
               </div>
 
               {/* Step 3 */}
-              <div className="flex flex-col md:flex-row items-center gap-8">
-                <div className="flex-shrink-0 w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
-                  3
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-text-primary mb-3">
+              <div className="relative group">
+                <div className="p-8 transition-all duration-300">
+                  <div className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center text-xl font-bold mb-6 transition-transform group-hover:scale-110">
+                    3
+                  </div>
+                  <h3 className="text-xl font-bold text-text-primary mb-4">
                     Let AI do the heavy lifting
                   </h3>
-                  <p className="text-lg text-text-secondary">
+                  <p className="text-text-secondary leading-relaxed">
                     Ask AI to organize, summarize, or generate next steps. It
                     reads your board, understands context, and helps you move
                     faster.
                   </p>
+                  <div className="mt-6 w-16 h-1 bg-primary rounded-full opacity-50"></div>
                 </div>
               </div>
             </div>
@@ -380,7 +383,7 @@ const HomePageContent = () => {
           </div>
 
           {/* Final CTA */}
-          <div className="max-w-4xl mx-auto text-center bg-surface border border-border rounded-3xl p-12 shadow-xl">
+          <div className="max-w-4xl mx-auto text-center p-12">
             <h2 className="text-4xl sm:text-5xl font-bold text-text-primary mb-6">
               Stop talking about ideas.
               <br />
@@ -396,9 +399,6 @@ const HomePageContent = () => {
             >
               Create your first board—free
             </button>
-            <p className="text-sm text-text-secondary mt-6">
-              Free forever for personal use • Upgrade when your team grows
-            </p>
           </div>
         </div>
       </main>
