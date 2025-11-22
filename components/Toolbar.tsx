@@ -46,6 +46,7 @@ export function Toolbar() {
 
   return (
     <div
+      data-toolbar
       className="fixed left-4 top-1/2 -translate-y-1/2 z-50 rounded-lg shadow-lg p-2 flex flex-col gap-2"
       style={{
         background: "var(--bg-surface)",
@@ -85,7 +86,7 @@ export function Toolbar() {
             {/* Pen tool expansion */}
             {isPenTool && isActive && (
               <div
-                className="absolute left-14 top-0 rounded-lg shadow-lg p-3 min-w-[160px]"
+                className="absolute left-14 top-0 rounded-lg shadow-lg p-3 min-w-40"
                 style={{
                   background: "var(--bg-surface)",
                   border: "1px solid var(--border)",

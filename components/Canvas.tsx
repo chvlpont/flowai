@@ -1087,6 +1087,16 @@ export function Canvas({ boardId }: { boardId: string }) {
   const handleCanvasClick = (e: React.MouseEvent) => {
     setContextMenu(null);
     const target = e.target as HTMLElement;
+
+    // Check if click is on toolbar or other UI elements
+    const isToolbarClick =
+      target.closest("[data-toolbar]") ||
+      target.closest(".fixed") ||
+      target.closest("button") ||
+      target.closest('[role="button"]');
+
+    if (isToolbarClick) return;
+
     const isCanvasBackground =
       target === canvasRef.current ||
       target.classList.contains("canvas-content") ||
