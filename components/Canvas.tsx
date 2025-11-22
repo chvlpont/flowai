@@ -419,55 +419,50 @@ export function Canvas({ boardId }: { boardId: string }) {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  // Throttle ref for cursor updates
+  const lastCursorUpdateRef = useRef<number>(0);
+
   // Handle mouse move for cursor tracking
-  const handleCursorMove = async (e: React.MouseEvent) => {
-    if (!user || !canvasRef.current) {
-      console.log("Cursor move blocked:", {
-        user: !!user,
-        canvas: !!canvasRef.current,
-      });
-      return;
-    }
+  const handleCursorMove = useCallback(
+    async (e: React.MouseEvent) => {
+      if (!user || !canvasRef.current) {
+        return;
+      }
 
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
-    const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+      const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
 
-    // Throttle cursor updates (only every 100ms)
-    const now = Date.now();
-    if (
-      !handleCursorMove.lastUpdate ||
-      now - handleCursorMove.lastUpdate > 100
-    ) {
-      handleCursorMove.lastUpdate = now;
+      // Throttle cursor updates (only every 100ms)
+      const now = Date.now();
+      if (now - lastCursorUpdateRef.current > 100) {
+        lastCursorUpdateRef.current = now;
 
-      const cursorData = {
-        user_id: user.id,
-        display_name:
-          user.user_metadata?.display_name ||
-          user.email?.split("@")[0] ||
-          "Anonymous",
-        cursor_x: x,
-        cursor_y: y,
-        color: getUserColor(user.id),
-        board_id: boardId,
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      };
+        const cursorData = {
+          user_id: user.id,
+          display_name:
+            user.user_metadata?.display_name ||
+            user.email?.split("@")[0] ||
+            "Anonymous",
+          cursor_x: x,
+          cursor_y: y,
+          color: getUserColor(user.id),
+          board_id: boardId,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        };
 
-      console.log("Sending cursor data:", cursorData);
+        // Update local state immediately
+        updateCursor(cursorData);
 
-      // Update local state immediately
-      updateCursor(cursorData);
-
-      // Send to Supabase (don't await to not block UI)
-      supabase
-        .from("board_presence")
-        .upsert(cursorData, { onConflict: "user_id,board_id" })
-        .then((result) => console.log("Cursor update result:", result));
-    }
-  };
-  handleCursorMove.lastUpdate = 0;
+        // Send to Supabase (don't await to not block UI)
+        supabase
+          .from("board_presence")
+          .upsert(cursorData, { onConflict: "user_id,board_id" });
+      }
+    },
+    [user, viewport.x, viewport.y, viewport.zoom, boardId, updateCursor]
+  );
 
   // Redirect if not authorized
   useEffect(() => {
@@ -604,7 +599,24 @@ export function Canvas({ boardId }: { boardId: string }) {
       }
       supabase.removeChannel(channel);
     };
-  }, [boardId, isAuthorized]);
+  }, [
+    boardId,
+    isAuthorized,
+    user?.id,
+    setNotes,
+    setConnections,
+    setStrokes,
+    setCursors,
+    addNote,
+    updateNote,
+    deleteNote,
+    addConnection,
+    deleteConnection,
+    addStroke,
+    deleteStroke,
+    updateCursor,
+    removeCursor,
+  ]);
 
   // Auto-remove stale cursors (cursors that haven't updated in 10 seconds)
   useEffect(() => {
@@ -629,7 +641,7 @@ export function Canvas({ boardId }: { boardId: string }) {
     const interval = setInterval(checkStaleCursors, 5000);
 
     return () => clearInterval(interval);
-  }, [isAuthorized, setCursors]);
+  }, [isAuthorized]);
 
   // Additional cleanup on page unload/refresh
   useEffect(() => {
@@ -961,6 +973,8 @@ export function Canvas({ boardId }: { boardId: string }) {
     // Create notes in a grid layout
     const notesPerRow = Math.ceil(Math.sqrt(aiNotes.length));
 
+    const createdNoteIds: string[] = [];
+
     for (let i = 0; i < aiNotes.length; i++) {
       const row = Math.floor(i / notesPerRow);
       const col = i % notesPerRow;
@@ -988,7 +1002,16 @@ export function Canvas({ boardId }: { boardId: string }) {
 
       if (data) {
         addNote(data);
+        createdNoteIds.push(data.id);
       }
+    }
+
+    // Select all newly created notes after a brief delay to allow render
+    if (createdNoteIds.length > 0) {
+      setTimeout(() => {
+        setSelectedItemIds(createdNoteIds);
+        setSelectedItemId(null);
+      }, 100);
     }
   };
 
