@@ -154,9 +154,12 @@ export default function BoardsPage() {
       {/* Header */}
       <header className="border-b border-border bg-surface/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold bg-primary bg-clip-text text-transparent">
+          <button
+            onClick={() => router.push("/")}
+            className="text-2xl font-bold bg-primary bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+          >
             Flowai
-          </h1>
+          </button>
           <button
             onClick={handleLogout}
             disabled={loggingOut}
