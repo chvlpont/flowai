@@ -1644,7 +1644,7 @@ export function Canvas({ boardId }: { boardId: string }) {
         >
           <button
             onClick={() => router.push("/boards")}
-            className="flex items-center gap-1.5 hover:text-primary transition-colors"
+            className="flex items-center gap-1.5 hover:text-primary transition-colors cursor-pointer"
             style={{ color: "var(--text-secondary)" }}
           >
             <ArrowLeft className="w-4 h-4" />
