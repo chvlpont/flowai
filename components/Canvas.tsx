@@ -421,6 +421,7 @@ export function Canvas({ boardId }: { boardId: string }) {
 
   // Throttle ref for cursor updates
   const lastCursorUpdateRef = useRef<number>(0);
+  const cursorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle mouse move for cursor tracking
   const handleCursorMove = useCallback(
@@ -455,10 +456,32 @@ export function Canvas({ boardId }: { boardId: string }) {
         // Update local state immediately
         updateCursor(cursorData);
 
-        // Send to Supabase (don't await to not block UI)
+        // Send to Supabase with error handling
         supabase
           .from("board_presence")
-          .upsert(cursorData, { onConflict: "user_id,board_id" });
+          .upsert(cursorData, { onConflict: "user_id,board_id" })
+          .then(({ error }) => {
+            if (error) {
+              console.error("❌ Cursor update failed:", error);
+            }
+          });
+
+        // Clear existing timeout
+        if (cursorTimeoutRef.current) {
+          clearTimeout(cursorTimeoutRef.current);
+        }
+
+        // Set new timeout to mark cursor as inactive after 5 seconds
+        cursorTimeoutRef.current = setTimeout(() => {
+          supabase
+            .from("board_presence")
+            .update({
+              is_active: false,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("user_id", user.id)
+            .eq("board_id", boardId);
+        }, 5000);
       }
     },
     [user, viewport.x, viewport.y, viewport.zoom, boardId, updateCursor]
@@ -589,6 +612,11 @@ export function Canvas({ boardId }: { boardId: string }) {
       .subscribe();
 
     return () => {
+      // Clear existing timeout
+      if (cursorTimeoutRef.current) {
+        clearTimeout(cursorTimeoutRef.current);
+      }
+
       // Clean up presence when leaving
       if (user) {
         supabase
@@ -618,14 +646,26 @@ export function Canvas({ boardId }: { boardId: string }) {
     removeCursor,
   ]);
 
-  // Auto-remove stale cursors (cursors that haven't updated in 10 seconds)
+  // Auto-remove stale cursors (cursors that haven't updated in 15 seconds)
   useEffect(() => {
     if (!isAuthorized) return;
 
-    const checkStaleCursors = () => {
+    const checkStaleCursors = async () => {
       const now = Date.now();
-      const staleThreshold = 10000; // 10 seconds
+      const staleThreshold = 15000; // 15 seconds
 
+      // Clean up stale cursors from database
+      const { error } = await supabase
+        .from("board_presence")
+        .delete()
+        .eq("board_id", boardId)
+        .lt("updated_at", new Date(now - staleThreshold).toISOString());
+
+      if (error) {
+        console.error("Failed to clean stale cursors:", error);
+      }
+
+      // Also clean up local state
       const currentCursors = useStore.getState().cursors;
       const activeCursors = currentCursors.filter((cursor) => {
         const lastUpdate = new Date(cursor.updated_at).getTime();
@@ -633,53 +673,34 @@ export function Canvas({ boardId }: { boardId: string }) {
       });
 
       if (activeCursors.length !== currentCursors.length) {
+        console.log(
+          `🧹 Removed ${
+            currentCursors.length - activeCursors.length
+          } stale cursors`
+        );
         setCursors(activeCursors);
       }
     };
 
-    // Check every 5 seconds
-    const interval = setInterval(checkStaleCursors, 5000);
+    // Check every 10 seconds
+    const interval = setInterval(checkStaleCursors, 10000);
 
     return () => clearInterval(interval);
-  }, [isAuthorized]);
+  }, [isAuthorized, boardId, setCursors]);
 
-  // Additional cleanup on page unload/refresh
+  // Clean up timeout and cursor when component unmounts
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (user) {
-        // Use navigator.sendBeacon for reliable cleanup on page unload
-        const data = JSON.stringify({
-          user_id: user.id,
-          board_id: boardId,
-        });
-
-        // Fallback: try regular delete
-        supabase
-          .from("board_presence")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("board_id", boardId);
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden && user) {
-        // User switched tabs or minimized - optional: could pause cursor updates
-        // For now, keep cursor active even when tab is hidden
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      // Also clean up on component unmount
+      // Clear timeout
+      if (cursorTimeoutRef.current) {
+        clearTimeout(cursorTimeoutRef.current);
+      }
+
+      // Clean up cursor
       if (user) {
         supabase
           .from("board_presence")
-          .delete()
+          .update({ is_active: false })
           .eq("user_id", user.id)
           .eq("board_id", boardId);
       }
@@ -1986,7 +2007,7 @@ export function Canvas({ boardId }: { boardId: string }) {
 
           {/* Render other users' cursors */}
           {cursors
-            .filter((cursor) => cursor.user_id !== user?.id)
+            .filter((cursor) => cursor.user_id !== user?.id && cursor.is_active)
             .map((cursor) => (
               <div
                 key={cursor.user_id}
