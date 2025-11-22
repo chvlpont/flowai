@@ -1783,8 +1783,8 @@ export function Canvas({ boardId }: { boardId: string }) {
         onDragMove={(event) => {
           if (event.delta) {
             setDragDelta({
-              x: event.delta.x / viewport.zoom,
-              y: event.delta.y / viewport.zoom,
+              x: event.delta.x,
+              y: event.delta.y,
             });
           }
         }}
