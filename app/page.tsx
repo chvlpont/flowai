@@ -52,7 +52,7 @@ const HomePageContent = () => {
               {user ? (
                 <Link
                   href="/boards"
-                  className="px-5 py-2.5 bg-surface hover:bg-surface-muted border border-border hover:border-primary text-text-primary font-semibold rounded-xl transition-all"
+                  className="px-5 py-2.5 bg-surface hover:bg-muted border border-border hover:border-primary text-text-primary font-semibold rounded-xl transition-all"
                 >
                   Dashboard
                 </Link>
@@ -66,7 +66,7 @@ const HomePageContent = () => {
                   </button>
                   <button
                     onClick={() => setIsSignupOpen(true)}
-                    className="px-5 py-2.5 bg-primary hover:from-primary-hover hover:to-accent-purple text-white font-medium rounded-md transition-all duration-300 shadow-lg"
+                    className="px-5 py-2.5 bg-linear-to-r from-primary to-accent-purple hover:from-primary-hover hover:to-accent-purple text-white font-medium rounded-md transition-all duration-300 shadow-lg"
                   >
                     Get started
                   </button>
@@ -75,7 +75,7 @@ const HomePageContent = () => {
               {/* Theme Toggle Button - now next to Log in and Get started */}
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="p-2 text-text-secondary hover:text-text-primary hover:bg-surface-muted rounded-lg transition-all border border-transparent hover:border-border"
+                className="p-2 text-text-secondary hover:text-text-primary hover:bg-muted rounded-lg transition-all border border-transparent hover:border-border"
                 aria-label="Toggle theme"
               >
                 {theme === "dark" ? (
@@ -92,185 +92,313 @@ const HomePageContent = () => {
       {/* Hero Section */}
       <main className="flex-1 px-4 py-16 sm:py-24">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-4xl mx-auto mb-16">
-            {/* Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-text-primary mb-6 leading-tight">
-              The next-gen AI collaboration board for creative teams
+          {/* Hero Content */}
+          <div className="text-center max-w-4xl mx-auto mb-20">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-text-primary mb-8 leading-[1.1]">
+              Think together.
+              <br />
+              Build faster.
             </h1>
 
-            {/* Subheadline */}
-            <p className="text-lg sm:text-xl text-text-secondary mb-8 max-w-2xl mx-auto leading-relaxed">
-              Collaborate visually, brainstorm ideas, and organize your workflow
-              together. Drag notes, connect concepts, and let AI help automate
-              and enhance your team's creativity—all in real time.
+            <p className="text-xl sm:text-2xl text-text-secondary mb-10 max-w-3xl mx-auto leading-relaxed font-light">
+              An infinite canvas where your team's best work happens. Drop
+              ideas, connect dots, let AI amplify your thinking.
             </p>
 
-            {/* CTA Button */}
-            <div className="flex justify-center items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-8">
               <button
                 onClick={() => setIsSignupOpen(true)}
-                className="px-8 py-3.5 bg-primary hover:from-primary-hover hover:to-accent-green text-white font-semibold rounded-md transition-all duration-300 shadow-lg text-base"
+                className="cursor-pointer px-8 py-4 bg-primary hover:bg-primary-hover text-white font-semibold rounded-lg transition-all duration-300 shadow-lg text-lg"
               >
-                Sign up - it's free!
+                Start collaborating free
               </button>
             </div>
+
+            <p className="text-sm text-text-secondary">
+              No credit card • No setup time • Invite your team in seconds
+            </p>
           </div>
 
-          {/* Product Preview - Collaboration board */}
-          <div className="max-w-5xl mx-auto">
-            <div className="bg-surface rounded-lg shadow-2xl overflow-hidden border border-border">
-              {/* Browser-like header */}
-              <div className="bg-surface-muted border-b border-border px-4 py-3 flex items-center gap-2">
-                <div className="flex gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                  <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-                  <div className="w-3 h-3 rounded-full bg-accent-green"></div>
+          {/* Interactive Demo Preview */}
+          <div className="max-w-6xl mx-auto mb-32">
+            <div className="bg-surface rounded-2xl shadow-2xl overflow-hidden border border-border">
+              <div className="relative bg-linear-to-br from-primary via-accent-purple to-accent-green p-12 min-h-[500px]">
+                {/* Asymmetric grid layout for more dynamic feel */}
+                <div className="grid grid-cols-12 gap-4 h-full">
+                  {/* Large feature card */}
+                  <div className="col-span-12 md:col-span-7 bg-background rounded-xl p-8 shadow-xl border border-border flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-2 h-2 rounded-full bg-green"></div>
+                        <span className="text-xs font-semibold text-text-primary uppercase tracking-wide">
+                          Live collaboration
+                        </span>
+                      </div>
+                      <h3 className="text-2xl font-bold text-text-primary mb-3">
+                        Real-time visual thinking
+                      </h3>
+                      <p className="text-text-secondary mb-6">
+                        Create sticky notes, draw connections, and see your
+                        team's ideas come to life instantly. Every cursor
+                        movement, every edit, every moment happens in perfect
+                        sync.
+                      </p>
+                      <p className="text-text-secondary mb-6">
+                        Your AI teammate can create notes, identify patterns in
+                        your notes, summarize your board, and turn brainstorms
+                        into action plans. Just ask!
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* AI card */}
+                  <div className="col-span-12 md:col-span-5 bg-background rounded-xl p-6 shadow-xl border border-border">
+                    <div className="mb-4">
+                      <span className="text-xs bg-primary text-white px-3 py-1 rounded-full font-semibold">
+                        AI ASSISTANT
+                      </span>
+                    </div>
+                    <div className="space-y-3 mb-4">
+                      <div className="bg-surface rounded-lg p-3 border-l-4 border-accent-orange">
+                        <p className="text-sm font-medium text-text-primary">
+                          "Create 10 ideas for my project and place them on
+                          notes"
+                        </p>
+                      </div>
+                      <div className="bg-surface rounded-lg p-3 border-l-4 border-accent-purple">
+                        <p className="text-sm font-medium text-text-primary">
+                          "Summarize this board"
+                        </p>
+                      </div>
+                      <div className="bg-surface rounded-lg p-3 border-l-4 border-accent-green">
+                        <p className="text-sm font-medium text-text-primary">
+                          "Generate next action items from our discussion"
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-text-secondary">
+                      AI understands your board context and helps you
+                      brainstorm, organize, and move forward faster.
+                    </p>
+                  </div>
+
+                  {/* Quick action cards */}
+                  <div className="col-span-6 md:col-span-4 bg-background rounded-xl p-5 shadow-xl border border-border">
+                    <div className="mb-3">
+                      <span className="text-xs bg-primary text-white px-2 py-1 rounded font-semibold">
+                        NOTES
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-secondary">
+                      Sticky notes that actually stick. No more lost ideas.
+                    </p>
+                  </div>
+
+                  <div className="col-span-6 md:col-span-4 bg-background rounded-xl p-5 shadow-xl border border-border">
+                    <div className="mb-3">
+                      <span className="text-xs bg-primary text-white px-2 py-1 rounded font-semibold">
+                        LINKS
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-secondary">
+                      Draw connections between ideas. Make sense of chaos.
+                    </p>
+                  </div>
+
+                  <div className="col-span-12 md:col-span-4 bg-background rounded-xl p-5 shadow-xl border border-border">
+                    <div className="mb-3">
+                      <span className="text-xs bg-primary text-white px-2 py-1 rounded font-semibold">
+                        INFINITE CANVAS
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-secondary">
+                      Zoom out to see the big picture. Zoom in for details.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* How it works - Step by step */}
+          <div className="max-w-5xl mx-auto mb-32">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl sm:text-5xl font-bold text-text-primary mb-4">
+                From blank canvas to breakthrough
+              </h2>
+              <p className="text-xl text-text-secondary">
+                Three steps to better collaboration
+              </p>
+            </div>
+
+            <div className="space-y-16">
+              {/* Step 1 */}
+              <div className="flex flex-col md:flex-row items-center gap-8">
+                <div className="flex-shrink-0 w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
+                  1
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-bold text-text-primary mb-3">
+                    Drop your ideas on the canvas
+                  </h3>
+                  <p className="text-lg text-text-secondary">
+                    Create notes, upload images, paste links. Everything lives
+                    on an infinite board. No folders, no hierarchy—just spatial
+                    freedom.
+                  </p>
                 </div>
               </div>
 
-              {/* Visual Collaboration Board Preview */}
-              <div className="bg-linear-to-br from-primary via-accent-purple to-accent-green p-8 sm:p-12">
-                <div className="flex flex-wrap gap-8 justify-center items-center">
-                  {/* Sticky Notes */}
-                  <div className="bg-background rounded-lg p-6 shadow-lg border border-border w-64 h-40 flex flex-col justify-between">
-                    <div>
-                      <h3 className="font-semibold text-text-primary mb-2 text-base">
-                        Team Brainstorm
-                      </h3>
-                      <p className="text-text-secondary text-sm">
-                        Share ideas visually with sticky notes.
-                      </p>
-                    </div>
-                    <span className="text-xs bg-primary text-white px-2 py-1 rounded self-end">
-                      Note
-                    </span>
-                  </div>
-                  {/* Connections */}
-                  <div className="bg-background rounded-lg p-6 shadow-lg border border-border w-64 h-40 flex flex-col justify-between">
-                    <div>
-                      <h3 className="font-semibold text-text-primary mb-2 text-base">
-                        Connect Ideas
-                      </h3>
-                      <p className="text-text-secondary text-sm">
-                        Draw lines to link concepts and tasks.
-                      </p>
-                    </div>
-                    <span className="text-xs bg-accent-purple text-white px-2 py-1 rounded self-end">
-                      Connection
-                    </span>
-                  </div>
-                  {/* Real-time Collaboration */}
-                  <div className="bg-background rounded-lg p-6 shadow-lg border border-border w-64 h-40 flex flex-col justify-between">
-                    <div>
-                      <h3 className="font-semibold text-text-primary mb-2 text-base">
-                        Live Collaboration
-                      </h3>
-                      <p className="text-text-secondary text-sm">
-                        See changes instantly as teammates edit.
-                      </p>
-                    </div>
-                    <span className="text-xs bg-accent-green text-white px-2 py-1 rounded self-end">
-                      Live
-                    </span>
-                  </div>
-                  {/* AI Assistant */}
-                  <div className="bg-background rounded-lg p-6 shadow-lg border border-border w-64 h-40 flex flex-col justify-between">
-                    <div>
-                      <h3 className="font-semibold text-text-primary mb-2 text-base">
-                        AI Assistant
-                      </h3>
-                      <p className="text-text-secondary text-sm">
-                        Let AI organize, suggest, and automate your board.
-                      </p>
-                    </div>
-                    <span className="text-xs bg-accent-orange text-white px-2 py-1 rounded self-end">
-                      AI
-                    </span>
-                  </div>
+              {/* Step 2 */}
+              <div className="flex flex-col md:flex-row items-center gap-8">
+                <div className="flex-shrink-0 w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
+                  2
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-bold text-text-primary mb-3">
+                    Invite your team, collaborate live
+                  </h3>
+                  <p className="text-lg text-text-secondary">
+                    Share a link. Everyone sees the same board. Cursors, edits,
+                    and updates appear instantly. It's chaos that makes sense.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex flex-col md:flex-row items-center gap-8">
+                <div className="flex-shrink-0 w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
+                  3
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-bold text-text-primary mb-3">
+                    Let AI do the heavy lifting
+                  </h3>
+                  <p className="text-lg text-text-secondary">
+                    Ask AI to organize, summarize, or generate next steps. It
+                    reads your board, understands context, and helps you move
+                    faster.
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Feature highlights */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mt-20">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-linear-to-br from-primary/20 to-accent-purple/20 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <svg
-                  className="w-6 h-6 text-primary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <circle cx="12" cy="12" r="10" strokeWidth="2" />
-                  <rect
-                    x="7"
-                    y="7"
-                    width="10"
-                    height="4"
-                    rx="2"
-                    fill="currentColor"
-                    opacity="0.2"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-text-primary mb-2 text-lg">
-                Visual Creativity
-              </h3>
-              <p className="text-text-secondary text-sm">
-                Sketch, connect, and organize ideas visually. Drag notes, draw
-                lines, and build your board your way.
-              </p>
+          {/* Use cases - Concrete examples */}
+          <div className="max-w-6xl mx-auto mb-32">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl sm:text-5xl font-bold text-text-primary mb-4">
+                Built for how you actually work
+              </h2>
             </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-linear-to-br from-accent-purple/20 to-accent-purple/20 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <svg
-                  className="w-6 h-6 text-accent-purple"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 20v-6m0 0l-4-4m4 4l4-4"
-                  />
-                </svg>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-surface border border-border rounded-2xl p-8 hover:shadow-xl transition-shadow">
+                <h3 className="text-xl font-bold text-text-primary mb-3">
+                  Design teams
+                </h3>
+                <p className="text-text-secondary mb-4">
+                  Mood boards, user flows, wireframe feedback—all in one place.
+                  No more scattered Figma links and Slack threads.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    Brainstorming
+                  </span>
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    Mood boards
+                  </span>
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    Design reviews
+                  </span>
+                </div>
               </div>
-              <h3 className="font-semibold text-text-primary mb-2 text-lg">
-                Real-time Collaboration
-              </h3>
-              <p className="text-text-secondary text-sm">
-                Work together instantly. See teammates' changes live as you
-                brainstorm and build.
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-linear-to-br from-accent-green/20 to-accent-green/20 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <svg
-                  className="w-6 h-6 text-accent-green"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <circle cx="12" cy="12" r="10" strokeWidth="2" />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 12h8"
-                  />
-                </svg>
+
+              <div className="bg-surface border border-border rounded-2xl p-8 hover:shadow-xl transition-shadow">
+                <h3 className="text-xl font-bold text-text-primary mb-3">
+                  Product managers
+                </h3>
+                <p className="text-text-secondary mb-4">
+                  Roadmaps, sprint planning, feature specs. Keep engineering,
+                  design, and stakeholders on the same page—literally.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    Sprint planning
+                  </span>
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    Roadmaps
+                  </span>
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    User stories
+                  </span>
+                </div>
               </div>
-              <h3 className="font-semibold text-text-primary mb-2 text-lg">
-                AI-Powered Assistance
-              </h3>
-              <p className="text-text-secondary text-sm">
-                Let AI organize, suggest, and automate your board. Get smart
-                recommendations and instant help.
-              </p>
+
+              <div className="bg-surface border border-border rounded-2xl p-8 hover:shadow-xl transition-shadow">
+                <h3 className="text-xl font-bold text-text-primary mb-3">
+                  Startup founders
+                </h3>
+                <p className="text-text-secondary mb-4">
+                  Strategy sessions, investor pitch prep, product evolution.
+                  Watch your startup's story unfold on one infinite canvas.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    Strategy
+                  </span>
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    Pitch decks
+                  </span>
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    GTM planning
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-surface border border-border rounded-2xl p-8 hover:shadow-xl transition-shadow">
+                <h3 className="text-xl font-bold text-text-primary mb-3">
+                  Remote teams
+                </h3>
+                <p className="text-text-secondary mb-4">
+                  Async brainstorms, team retrospectives, project kickoffs. Time
+                  zones don't matter when the board never sleeps.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    Async work
+                  </span>
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    Retrospectives
+                  </span>
+                  <span className="text-xs bg-muted border border-border text-text-primary px-3 py-1 rounded-full font-medium">
+                    Stand-ups
+                  </span>
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* Final CTA */}
+          <div className="max-w-4xl mx-auto text-center bg-surface border border-border rounded-3xl p-12 shadow-xl">
+            <h2 className="text-4xl sm:text-5xl font-bold text-text-primary mb-6">
+              Stop talking about ideas.
+              <br />
+              Start building them.
+            </h2>
+            <p className="text-xl text-text-secondary mb-8">
+              Join teams who've ditched endless meetings for visual
+              collaboration that actually works.
+            </p>
+            <button
+              onClick={() => setIsSignupOpen(true)}
+              className="cursor-pointer px-10 py-4 bg-primary hover:bg-primary-hover text-white font-semibold rounded-lg transition-all duration-300 shadow-lg text-lg"
+            >
+              Create your first board—free
+            </button>
+            <p className="text-sm text-text-secondary mt-6">
+              Free forever for personal use • Upgrade when your team grows
+            </p>
           </div>
         </div>
       </main>
