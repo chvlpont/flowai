@@ -52,9 +52,16 @@ export function InviteModal({ boardId }: { boardId: string }) {
           setIsOpen(true);
           generateInvite();
         }}
-        className="px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600"
+        className="w-10 h-10 rounded shadow flex items-center justify-center transition-all hover:scale-[1.05]"
+        style={{
+          background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+          color: "white",
+          border: "none",
+          boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+        }}
+        title="Share Board"
       >
-        📤 Share
+        <span className="text-lg">📤</span>
       </button>
 
       {isOpen && (

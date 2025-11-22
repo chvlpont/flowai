@@ -1727,22 +1727,6 @@ export function Canvas({ boardId }: { boardId: string }) {
             Connection mode: Click another note
           </span>
         )}
-        <InviteModal boardId={boardId} />
-
-        {/* AI Command Button */}
-        <button
-          onClick={() => setAiCommandOpen(true)}
-          className="px-4 py-2 rounded shadow text-sm font-medium flex items-center gap-2 transition-all"
-          style={{
-            background: "var(--accent-primary)",
-            color: "white",
-            border: "none",
-          }}
-          title="Open AI Assistant (Ctrl+K)"
-        >
-          <span>✨</span>
-          <span>AI Assistant</span>
-        </button>
       </div>
 
       {/* Zoom Controls & Theme Toggle */}
@@ -1796,6 +1780,25 @@ export function Canvas({ boardId }: { boardId: string }) {
           title="Reset view"
         >
           ⟲
+        </button>
+
+        <div className="h-px bg-border my-1"></div>
+
+        {/* Share Button */}
+        <InviteModal boardId={boardId} />
+
+        {/* AI Assistant Button */}
+        <button
+          onClick={() => setAiCommandOpen(true)}
+          className="w-10 h-10 rounded shadow flex items-center justify-center transition-all"
+          style={{
+            background: "var(--accent-primary)",
+            color: "white",
+            border: "none",
+          }}
+          title="Open AI Assistant (Ctrl+K)"
+        >
+          <span className="text-lg">✨</span>
         </button>
       </div>
 
