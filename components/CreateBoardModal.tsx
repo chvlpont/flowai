@@ -25,6 +25,7 @@ export function CreateBoardModal({
     e.preventDefault();
     if (!boardName.trim()) return;
 
+    console.log("Starting board creation...");
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -36,18 +37,26 @@ export function CreateBoardModal({
         .select()
         .single();
 
+      console.log("Board creation response:", { data, error });
+
       if (error) {
+        console.error("Board creation error:", error);
         toast.error("Failed to create board");
-        console.error(error);
+        setIsLoading(false);
       } else {
+        console.log("Board created successfully, ID:", data.id);
         toast.success("Board created successfully!");
-        router.push(`/board/${data.id}`);
         handleClose();
+        console.log("Navigating to:", `/board/${data.id}`);
+        // Navigate after a brief delay to ensure state is clean
+        setTimeout(() => {
+          console.log("Executing navigation now...");
+          router.push(`/board/${data.id}`);
+        }, 100);
       }
     } catch (error) {
       console.error("Create board error:", error);
       toast.error("Failed to create board");
-    } finally {
       setIsLoading(false);
     }
   };

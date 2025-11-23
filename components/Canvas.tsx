@@ -318,7 +318,19 @@ export function Canvas({ boardId }: { boardId: string }) {
         return;
       }
 
-      // Check if user is a collaborator on this board
+      // First check if user is the owner of the board
+      const { data: boardData } = await supabase
+        .from("boards")
+        .select("owner_id")
+        .eq("id", boardId)
+        .single();
+
+      if (boardData?.owner_id === currentUser.id) {
+        setIsAuthorized(true);
+        return;
+      }
+
+      // If not owner, check if user is a collaborator on this board
       const { data: collaborator } = await supabase
         .from("board_collaborators")
         .select("*")

@@ -231,11 +231,17 @@ export default function BoardsPage() {
       {/* Join Board Modal */}
       <JoinBoardModal
         isOpen={isJoinModalOpen}
-        onClose={() => setIsJoinModalOpen(false)}
+        onClose={() => {
+          setIsJoinModalOpen(false);
+          checkAuth(); // Refresh boards after joining
+        }}
       />
       <CreateBoardModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          checkAuth(); // Refresh boards after creating
+        }}
         userId={user?.id || ""}
       />
     </div>
