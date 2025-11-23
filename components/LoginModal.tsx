@@ -26,6 +26,23 @@ export default function LoginModal({
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validation
+    if (!emailOrUsername.trim()) {
+      toast.error("Please enter your email or username");
+      return;
+    }
+
+    if (!password) {
+      toast.error("Please enter your password");
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
     setLoading(true);
 
     const response = await fetch("/api/auth/signin", {
@@ -94,7 +111,6 @@ export default function LoginModal({
                 onChange={(e) => setEmailOrUsername(e.target.value)}
                 className="w-full px-4 py-3 bg-background border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors"
                 placeholder="Enter your email or username"
-                required
               />
             </div>
 
@@ -108,7 +124,6 @@ export default function LoginModal({
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-background border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors"
                 placeholder="Enter your password"
-                required
               />
             </div>
 

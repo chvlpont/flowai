@@ -28,6 +28,39 @@ export default function SignupModal({
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validation
+    if (!username.trim()) {
+      toast.error("Please enter a username");
+      return;
+    }
+
+    if (username.length < 3) {
+      toast.error("Username must be at least 3 characters");
+      return;
+    }
+
+    if (!email.trim()) {
+      toast.error("Please enter your email");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    if (!password) {
+      toast.error("Please enter a password");
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
     setLoading(true);
 
     const response = await fetch("/api/auth/signup", {
@@ -97,7 +130,6 @@ export default function SignupModal({
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-3 bg-background border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors"
                 placeholder="Choose a username"
-                required
               />
             </div>
 
@@ -111,7 +143,6 @@ export default function SignupModal({
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 bg-background border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors"
                 placeholder="Enter your email"
-                required
               />
             </div>
 
@@ -125,8 +156,6 @@ export default function SignupModal({
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-background border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors"
                 placeholder="Create a password"
-                required
-                minLength={6}
               />
             </div>
 
