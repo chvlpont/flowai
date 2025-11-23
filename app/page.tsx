@@ -404,43 +404,9 @@ const HomePageContent = () => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-surface border-t border-border py-8 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-sm text-text-secondary">
-              © 2025 Kanb
-              <span className="bg-linear-to-r from-primary via-accent-purple to-accent-green bg-clip-text text-transparent">
-                ai
-              </span>
-              . All rights reserved.
-            </div>
-            <div className="flex gap-6">
-              <Link
-                href="/about"
-                className="text-text-secondary hover:text-text-primary text-sm transition-colors"
-              >
-                About
-              </Link>
-              <Link
-                href="/contact"
-                className="text-text-secondary hover:text-text-primary text-sm transition-colors"
-              >
-                Contact
-              </Link>
-              <Link
-                href="/privacy"
-                className="text-text-secondary hover:text-text-primary text-sm transition-colors"
-              >
-                Privacy
-              </Link>
-              <Link
-                href="/terms"
-                className="text-text-secondary hover:text-text-primary text-sm transition-colors"
-              >
-                Terms
-              </Link>
-            </div>
-          </div>
+      <footer className="border-t border-border mt-auto">
+        <div className="max-w-7xl mx-auto px-6 py-6 text-center">
+          <p className="text-sm text-text-secondary">© 2025 FlowAI</p>
         </div>
       </footer>
 
