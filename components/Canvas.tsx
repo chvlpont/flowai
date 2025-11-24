@@ -125,6 +125,19 @@ export function Canvas({ boardId }: { boardId: string }) {
     })
   );
 
+  // Custom modifier to adjust drag delta for zoom level
+  const adjustForZoom = ({
+    transform,
+  }: {
+    transform: { x: number; y: number; scaleX: number; scaleY: number };
+  }) => {
+    return {
+      ...transform,
+      x: transform.x / viewport.zoom,
+      y: transform.y / viewport.zoom,
+    };
+  };
+
   // Handle drag end
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, delta } = event;
@@ -133,9 +146,9 @@ export function Canvas({ boardId }: { boardId: string }) {
 
     if (!note) return;
 
-    // Calculate new position accounting for zoom
-    const deltaX = delta.x / viewport.zoom;
-    const deltaY = delta.y / viewport.zoom;
+    // Delta is already adjusted for zoom by the adjustForZoom modifier
+    const deltaX = delta.x;
+    const deltaY = delta.y;
     const newX = note.x + deltaX;
     const newY = note.y + deltaY;
 
@@ -1814,6 +1827,7 @@ export function Canvas({ boardId }: { boardId: string }) {
       {/* Canvas content with viewport transform */}
       <DndContext
         sensors={sensors}
+        modifiers={[adjustForZoom]}
         onDragStart={(event) => {
           const noteId = event.active.id as string;
           setActiveDragId(noteId);
