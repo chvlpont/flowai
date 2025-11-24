@@ -110,7 +110,7 @@ export function AICommandBar({ boardId, onCreateNotes }: AICommandBarProps) {
       onClick={handleClose}
     >
       <div
-        className="w-full max-w-2xl rounded-lg shadow-2xl"
+        className="w-full max-w-2xl rounded-lg shadow-2xl max-h-[80vh] overflow-y-auto"
         style={{
           background: "var(--bg-surface)",
           border: "1px solid var(--border)",
