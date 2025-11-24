@@ -6,6 +6,7 @@ import { Sun, Moon } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import LoginModal from "@/components/LoginModal";
 import SignupModal from "@/components/SignUpModal";
+import FlowAISpinner from "@/components/FlowAISpinner";
 import { useSearchParams } from "next/navigation";
 
 const HomePageContent = () => {
@@ -427,7 +428,7 @@ const HomePageContent = () => {
 
 const HomePage = () => {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<FlowAISpinner />}>
       <HomePageContent />
     </Suspense>
   );

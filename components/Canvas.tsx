@@ -12,6 +12,7 @@ import { InviteModal } from "./InviteModal";
 import { AICommandBar } from "./AICommandBar";
 import { Board } from "@/types";
 import { ArrowLeft } from "lucide-react";
+import FlowAISpinner from "./FlowAISpinner";
 import { useRouter, usePathname } from "next/navigation";
 import {
   DndContext,
@@ -1576,11 +1577,7 @@ export function Canvas({ boardId }: { boardId: string }) {
 
   // Show loading while checking authorization
   if (isAuthorized === null) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <p>Checking access...</p>
-      </div>
-    );
+    return <FlowAISpinner />;
   }
 
   // Show unauthorized message (though it should redirect)

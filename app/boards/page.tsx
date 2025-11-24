@@ -8,7 +8,8 @@ import BoardCard from "@/components/BoardCard";
 import { JoinBoardModal } from "@/components/JoinBoardModal";
 import { CreateBoardModal } from "@/components/CreateBoardModal";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Plus, UserPlus, LogOut, Loader2 } from "lucide-react";
+import { Plus, UserPlus, LogOut } from "lucide-react";
+import FlowAISpinner from "@/components/FlowAISpinner";
 import toast from "react-hot-toast";
 import { User } from "@supabase/supabase-js";
 
@@ -118,14 +119,7 @@ export default function BoardsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
-          <p className="text-text-secondary">Loading your boards...</p>
-        </div>
-      </div>
-    );
+    return <FlowAISpinner />;
   }
 
   return (
