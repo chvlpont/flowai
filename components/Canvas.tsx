@@ -1986,17 +1986,18 @@ export function Canvas({ boardId }: { boardId: string }) {
           {/* Marquee selection rectangle */}
           {isMarqueeSelecting && marqueeStart && marqueeEnd && (
             <div
-              className="absolute pointer-events-none"
+              className="absolute pointer-events-none animate-pulse"
               style={{
                 left: Math.min(marqueeStart.x, marqueeEnd.x),
                 top: Math.min(marqueeStart.y, marqueeEnd.y),
                 width: Math.abs(marqueeEnd.x - marqueeStart.x),
                 height: Math.abs(marqueeEnd.y - marqueeStart.y),
-                border: "2px dashed var(--accent-primary)",
+                border: "3px dashed var(--accent-primary)",
                 background: "var(--accent-primary-bg)",
-                borderRadius: "4px",
-                opacity: 0.3,
+                borderRadius: "6px",
+                opacity: 0.6,
                 zIndex: 1000,
+                boxShadow: "0 0 20px var(--accent-primary)",
               }}
             />
           )}
